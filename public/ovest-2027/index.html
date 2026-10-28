@@ -192,6 +192,7 @@ footer{border-top:1px solid var(--rule);padding:1.4em 0 2.4em;font-size:.82rem;c
 .fare-note{margin-top:1em}
 .fare-sub{flex-basis:100%;margin:-.4em 0 0;font-size:.85rem;color:var(--ink-soft)}
 .fare-grid.its th:first-child,.fare-grid.its td:first-child{text-align:left}
+.fare-grid.its tr.nv td,.fare-grid.its tr.nv th{color:var(--ink-soft);font-style:italic}
 
 /* Stays & totale */
 .stays{margin-top:1.6em;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:1.8em clamp(20px,3vw,36px)}
@@ -212,7 +213,7 @@ footer{border-top:1px solid var(--rule);padding:1.4em 0 2.4em;font-size:.82rem;c
 .chart-legend span{display:inline-flex;align-items:center;gap:.45em}
 .chart-legend i{display:inline-block;width:22px;height:0;border-top:2.5px solid var(--c)}
 .chart-legend i.dash{border-top-style:dashed}
-.tot{margin-top:1.6em;max-width:820px}
+.tot{margin-top:1.6em;max-width:980px}
 .tot-table{border-collapse:collapse;font-size:.92rem;width:100%;margin-top:.4em}
 .tot-table th,.tot-table td{border:1px solid var(--rule);padding:.4em .6em;text-align:right}
 .tot-table th:first-child,.tot-table td:first-child{text-align:left}
@@ -220,6 +221,7 @@ footer{border-top:1px solid var(--rule);padding:1.4em 0 2.4em;font-size:.82rem;c
 .tot-table tbody th{font-weight:500}
 .tot-table tfoot th,.tot-table tfoot td{font-weight:700;background:var(--paper-2)}
 .tot-table td{white-space:nowrap}
+.tot-table thead th{vertical-align:bottom}
 .tbd{color:var(--ink-soft);font-style:italic;font-weight:400}
 /* Playlist */
 .pl-embed{display:block;width:100%;max-width:760px;height:352px;border:0;border-radius:12px;margin:1.4em 0 .5em}
@@ -233,7 +235,7 @@ footer{border-top:1px solid var(--rule);padding:1.4em 0 2.4em;font-size:.82rem;c
 .pl-blocco li{margin:.15em 0}
 .pl-blocco li b{color:var(--ink);font-weight:500}
 .pl-g{display:inline-block;font-size:.7rem;border:1px solid var(--rule);border-radius:3px;padding:0 .3em;margin-left:.3em;white-space:nowrap}
-@media (max-width:480px){.fare-grid,.tot-table{font-size:.8rem}.fare-grid th,.fare-grid td,.tot-table th,.tot-table td{padding:.3em .35em}.fare-grid th{white-space:normal}}
+@media (max-width:480px){.tot-table{font-size:.74rem}.tot-table tbody th,.tot-table tfoot th{min-width:8.5em}.fare-grid{font-size:.8rem}.fare-grid th,.fare-grid td,.tot-table th,.tot-table td{padding:.3em .35em}.fare-grid th{white-space:normal}}
 </style>
 </head>
 <body>
@@ -739,7 +741,7 @@ const EMPTY_A="Lo storico degli alloggi non c’è ancora: la prima rilevazione 
 const LUOGHI={BLQ:"Bologna",MXP:"Milano Malpensa",VCE:"Venezia",DEN:"Denver",BZN:"Bozeman"};
 const FONTI={airbnb:"Airbnb",booking:"Booking.com"};
 const NUM_V=["rango","prezzo","adulti","prezzo_persona","scali","durata_min","migliore"];
-const NUM_A=["notti","adulti","camere_min","bagni_min","rango","totale","a_notte","tasse","camere","bagni","letti","ospiti","valutazione","scala","recensioni"];
+const NUM_A=["notti","adulti","camere_min","bagni_min","rango","totale","a_notte","tasse","camere","bagni","letti","ospiti","valutazione","scala","recensioni","lat","lon","distanza_km"];
 function msg(box,t){box.innerHTML='<p class="fare-empty">'+esc(t)+'</p>';}
 function parseCSV(text){const rows=[];let row=[],f="",q=false;
   for(let i=0;i<text.length;i++){const c=text[i];
@@ -808,7 +810,7 @@ function renderVoli(box,rows,cfg){
   const andate=rows.filter(r=>r.tipo==="andata"&&isNum(r.prezzo_persona));
   if(!andate.length){msg(box,EMPTY_V);return null;}
   const runs=[...new Set(andate.map(r=>r.run))].sort(),last=runs[runs.length-1];
-  const A=andate.filter(r=>r.run===last),best=A.slice().sort(cmp)[0],its=itinerari(rows,last,cfg),top=its[0]||null;
+  const A=andate.filter(r=>r.run===last),best=A.slice().sort(cmp)[0],its=itinerari(rows,last,cfg),top=its[0]||null,ri=rientroDi(rows),riCfg=cfg&&cfg.rientro;
   const go=top?top.go:best,ret=top?top.ret:null,cur=go.valuta||"EUR",haCfg=!!(cfg&&cfg.accesso);
   const per=top?top.totale:best.prezzo_persona;
   const sotto=top?'biglietto '+money(top.biglietto,cur)+(top.accesso!=null?' + accesso '+money(top.accesso,cur):' · accesso non stimato'):'a partire da, ritorno non ancora verificato';
@@ -816,11 +818,24 @@ function renderVoli(box,rows,cfg){
   const base=go.base==="persona"?'prezzi Google Flights a persona per '+esc(go.adulti)+' adulti':'prezzi Google Flights per '+esc(go.adulti)+' adulti, divisi a persona';
   let acc="";if(haCfg){const p=cfg.accesso.persona,ks=Object.keys(p).filter(k=>isNum(p[k]));
     acc='<p class="fare-note">Accesso da Bologna: un’auto per i '+esc(cfg.adultiInVolo||go.adulti)+' che volano, andata, parcheggio e ritorno (stime: '+ks.map(k=>esc(k)+' '+esc(money(p[k],cur))+'/persona').join(", ")+'). Consideriamo solo andata e ritorno dallo stesso aeroporto.</p>';}
-  const tabIts=its.length?'<div class="fare-table"><table class="fare-grid its"><caption>Itinerari completi verificati in questa rilevazione (a persona)</caption><thead><tr><th scope="col">Aeroporto</th><th scope="col">Biglietto</th><th scope="col">Accesso</th><th scope="col">Totale</th></tr></thead><tbody>'+
-    its.map((x,i)=>'<tr><th scope="row">'+esc(place(x.da))+'</th><td>'+esc(money(x.biglietto,cur))+'</td><td>'+(x.accesso!=null?esc(money(x.accesso,cur)):'–')+'</td><td'+(i===0?' class="min"':'')+'>'+esc(money(x.totale,cur))+'</td></tr>').join("")+'</tbody></table></div>':'';
+  /* Tutti gli aeroporti configurati: verificato (andata + ritorno stesso aeroporto) oppure «a partire da» segnato con * */
+  const partenze=(cfg&&Array.isArray(cfg.partenze)&&cfg.partenze.length?cfg.partenze:(haCfg?Object.keys(cfg.accesso.persona||{}):[])).slice();
+  its.forEach(x=>{if(!partenze.includes(x.da))partenze.push(x.da);});
+  const righeAp=partenze.map(ap=>{const it=its.find(x=>x.da===ap);if(it)return {ap:ap,it:it};
+    const da=A.filter(r=>r.da===ap),b=da.length?da.slice().sort(cmp)[0]:null,ac=accessoDi(cfg,ap);
+    return {ap:ap,nv:b?{biglietto:b.prezzo_persona,accesso:ac,totale:b.prezzo_persona+(ac||0)}:null};});
+  const haNv=righeAp.some(x=>x.nv);
+  const tabIts=righeAp.length?'<div class="fare-table"><table class="fare-grid its"><caption>Itinerari per aeroporto (a persona)</caption><thead><tr><th scope="col">Aeroporto</th><th scope="col">Biglietto</th><th scope="col">Accesso</th><th scope="col">Totale</th></tr></thead><tbody>'+
+    righeAp.map(x=>{const acc=v=>v!=null?esc(money(v,cur)):'–';
+      if(x.it)return '<tr><th scope="row">'+esc(place(x.ap))+'</th><td>'+esc(money(x.it.biglietto,cur))+'</td><td>'+acc(x.it.accesso)+'</td><td'+(x.it===its[0]?' class="min"':'')+'>'+esc(money(x.it.totale,cur))+'</td></tr>';
+      if(x.nv)return '<tr class="nv"><th scope="row">'+esc(place(x.ap))+'</th><td>da '+esc(money(x.nv.biglietto,cur))+'*</td><td>'+acc(x.nv.accesso)+'</td><td>da '+esc(money(x.nv.totale,cur))+'*</td></tr>';
+      return '<tr class="nv"><th scope="row">'+esc(place(x.ap))+'</th><td>–</td><td>–</td><td>–</td></tr>';}).join("")+
+    '</tbody></table>'+(haNv?'<p class="fare-note">* solo «a partire da» (il prezzo dell’andata con il ritorno più economico possibile): ritorno non ancora verificato.</p>':'')+'</div>':'';
   box.innerHTML='<div><div class="fare-stats"><div class="fare-stat"><b>'+esc(money(per,cur))+'</b><small>'+(top?'costo reale a persona':'a partire da, a persona (ritorno non verificato)')+'</small></div><div class="fare-stat"><b>'+esc(money(per*2,cur))+'</b><small>per coppia (2 persone)'+(top?'':', provvisorio')+'</small></div><p class="fare-sub">'+esc(sotto)+'</p></div>'+
     leg("Andata",go,go.data_andata)+leg("Ritorno",ret,ret&&ret.data_ritorno)+tabIts+
-    '<p class="fare-note">Aggiornato il '+esc(day)+' alle '+esc(time)+' · '+base+', andata e ritorno; al momento della prenotazione possono cambiare.</p>'+acc+'</div>'+
+    '<p class="fare-note">Aggiornato il '+esc(day)+' alle '+esc(time)+' · '+base+', andata e ritorno; al momento della prenotazione possono cambiare.</p>'+acc+
+    (ri?'<p class="fare-note">Rientro di chi ospita, solo andata: '+esc(place(ri.r.da)+" → "+place(ri.r.a))+' '+esc(fDate(ri.r.data_andata))+', da '+esc(money(ri.totale,cur))+' per '+esc(ri.adulti)+' ('+esc(money(ri.persona,cur))+' a persona) · '+esc(ri.r.compagnie||"–")+(hour(ri.r.partenza)&&hour(ri.r.arrivo)?', '+esc(hour(ri.r.partenza)+" → "+hour(ri.r.arrivo)):'')+', '+esc(fStops(ri.r))+'.</p>'
+      :riCfg?'<p class="fare-note">Rientro di chi ospita, solo andata '+esc((riCfg.da||[]).map(place).join(", ")+" → "+(riCfg.a||[]).map(place).join(", "))+': prezzo da rilevare.</p>':'')+'</div>'+
     '<div class="fare-side"><h3>Andamento</h3><div class="sheet fare-chart"></div></div>';
   const side=box.querySelector(".fare-side");
   const reale=runs.map(r=>{const x=itinerari(rows,r,cfg)[0];return x?{t:Date.parse(r),v:x.totale}:null;}).filter(Boolean);
@@ -830,16 +845,23 @@ function renderVoli(box,rows,cfg){
   chart(side.querySelector(".fare-chart"),series,cur,"Andamento del prezzo a persona: "+series.map(s=>s.nome+" da "+money(s.punti[0].v,cur)+" a "+money(s.punti[s.punti.length-1].v,cur)).join("; "));
   if(runs.length<2)side.insertAdjacentHTML("beforeend",'<p class="fare-note">Il grafico si riempie con le prossime rilevazioni.</p>');
   side.insertAdjacentHTML("beforeend",grid33(A,cur));
-  return {persona:per,biglietto:top?top.biglietto:best.prezzo_persona,accesso:top?top.accesso:null,verificato:!!top,adulti:go.adulti,valuta:cur};}
+  return {persona:per,biglietto:top?top.biglietto:best.prezzo_persona,accesso:top?top.accesso:null,verificato:!!top,adulti:go.adulti,valuta:cur,rientro:ri};}
+/* Volo di rientro di chi ospita (righe tipo 'rientro', solo andata): il più economico dell'ultimo run che ne ha */
+function rientroDi(rows){const RI=rows.filter(r=>r.tipo==="rientro"&&isNum(r.prezzo_persona));if(!RI.length)return null;
+  const run=RI.map(r=>r.run).sort().pop(),b=RI.filter(r=>r.run===run).sort(cmp)[0],n=isNum(b.adulti)&&b.adulti>0?b.adulti:2;
+  return {persona:b.prezzo_persona,adulti:n,totale:b.base==="persona"?b.prezzo_persona*n:(isNum(b.prezzo)?b.prezzo:b.prezzo_persona*n),r:b};}
 
 /* ---------- Alloggi ---------- */
 function renderAlloggi(box,rows,cfg){
   const conf=cfg&&cfg.alloggi,coppie=(cfg&&cfg.coppie)||3,cur=(rows[0]&&rows[0].valuta)||"EUR";
   let tappe=conf&&conf.tappe;
   if(!tappe){tappe=[];rows.forEach(r=>{if(!tappe.some(t=>t.id===r.tappa))tappe.push({id:r.tappa,nome:r.luogo,dal:r.check_in,al:r.check_out,notti:r.notti,nota:""});});}
+  /* Per tappa: se ci sono righe con la distanza dal centro, valgono solo quelle entro il raggio;
+     le righe vecchie senza distanza contano solo finché per quella tappa non ce ne sono di nuove. */
+  const dentro=(t,R)=>{const rag=isNum(t.raggioKm)?t.raggioKm:null;return R.some(r=>isNum(r.distanza_km))?R.filter(r=>isNum(r.distanza_km)&&(rag==null||r.distanza_km<=rag)):R;};
   const camere=(conf&&conf.camere)||rows[0].camere_min,bagni=(conf&&conf.bagni)||rows[0].bagni_min;
   const runsAll=[...new Set(rows.map(r=>r.run))].sort(),lastAll=runsAll[runsAll.length-1];
-  const ok=rows.filter(r=>isNum(r.totale));
+  const ok=tappe.flatMap(t=>dentro(t,rows.filter(r=>r.tappa===t.id&&isNum(r.totale))));
   const mancanti=[];let Z=0;
   const cards=tappe.map(t=>{const R=ok.filter(r=>r.tappa===t.id),n=t.notti||(R[0]&&R[0].notti)||0;
     const when=esc(fDate(t.dal,{weekday:"short",day:"numeric"})+" → "+fDate(t.al)+" · "+n+(n===1?" notte":" notti"));
@@ -856,7 +878,7 @@ function renderAlloggi(box,rows,cfg){
       '<p class="stay-price"><b>'+esc(money(best.totale,cur))+'</b>in totale</p>'+
       '<p>'+(notte!=null?'a notte (media) '+esc(money(notte,cur))+' · ':'')+'per coppia '+esc(money(best.totale/coppie,cur))+' (÷'+coppie+')</p>'+
       '<p class="stay-name">'+nome+' <span class="stay-src">'+esc(FONTI[best.fonte]||best.fonte)+'</span></p>'+
-      (meta?'<p>'+esc(meta)+'</p>':'')+(voto?'<p>'+esc(voto)+'</p>':'')+(trend?'<p>'+esc(trend)+'</p>':'')+
+      (isNum(best.distanza_km)?'<p>a '+esc(dec(best.distanza_km))+' km da '+esc(t.vicino||t.nome)+'</p>':'')+(meta?'<p>'+esc(meta)+'</p>':'')+(voto?'<p>'+esc(voto)+'</p>':'')+(trend?'<p>'+esc(trend)+'</p>':'')+
       (other?'<p>su '+esc(FONTI[other.fonte]||other.fonte)+': da '+esc(money(other.totale,cur))+'</p>':'')+
       (lastT<lastAll?'<p>ultimo dato del '+esc(fRun(lastT))+'</p>':'')+
       (t.nota?'<p class="stay-note">'+esc(t.nota)+'</p>':'')+'</article>';});
@@ -878,23 +900,30 @@ function renderTotale(box,v,a,cfg){
   const m=x=>x==null?'<span class="tbd">–</span>':esc(money(x,cur)),sum=xs=>xs.filter(isNum).reduce((s,x)=>s+x,0);
   const conCase=a&&a.mancanti.length<a.tappe,voli=v?2*v.biglietto:null,acc=v&&v.accesso!=null?2*v.accesso:null,all=conCase?a.totale/coppie:null;
   const ex=extra.map(e=>({voce:e.voce,q:isNum(e.importo)?e.importo/coppie:null}));
-  const vola=sum([voli,acc,all].concat(ex.map(e=>e.q))),ospita=sum([all].concat(ex.map(e=>e.q)));
-  const gruppo=(v?adulti*(v.biglietto+(v.accesso||0)):0)+(conCase?a.totale:0)+sum(extra.map(e=>e.importo));
+  const riCfg=cfg&&cfg.rientro,ri=v&&v.rientro,mostraRi=!!(riCfg||ri),riTot=ri?ri.totale:null;
+  const vola=sum([voli,acc,all].concat(ex.map(e=>e.q))),ospita=sum([riTot,all].concat(ex.map(e=>e.q)));
+  const gruppo=(v?adulti*(v.biglietto+(v.accesso||0)):0)+(riTot||0)+(conCase?a.totale:0)+sum(extra.map(e=>e.importo));
   const perche=[];
+  if(mostraRi&&!ri)perche.push("manca il prezzo del volo di rientro di chi ospita");
   if(!v)perche.push("mancano i voli");else{if(!v.verificato)perche.push("il prezzo dei voli è «a partire da», il ritorno non è ancora verificato");if(v.accesso==null)perche.push("manca la stima dell’accesso all’aeroporto");}
   if(!a)perche.push("mancano gli alloggi");else if(a.mancanti.length)perche.push("mancano gli alloggi di "+a.mancanti.join(", "));
   const lc=t=>/^[A-ZÀ-Ý][a-zà-ÿ]/.test(t)?t[0].toLowerCase()+t.slice(1):t,nulli=extra.filter(e=>!isNum(e.importo)).map(e=>lc(e.voce));
   if(nulli.length)perche.push("da definire: "+nulli.join(", "));
   const parz=perche.length>0;
-  const tbd='<span class="tbd">da definire</span>';
-  box.innerHTML='<div class="fare-stats"><div class="fare-stat"><b>'+esc(money(vola,cur))+'</b><small>per coppia che vola dall’Italia'+(parz?' (parziale)':'')+'</small></div><div class="fare-stat"><b>'+esc(money(ospita,cur))+'</b><small>per la coppia che vi ospita'+(parz?' (parziale)':'')+'</small></div></div>'+
-    '<div class="fare-table"><table class="tot-table"><thead><tr><th scope="col">Voce</th><th scope="col">Coppia che vola</th><th scope="col">Coppia che ospita</th></tr></thead><tbody>'+
-    '<tr><th scope="row">Voli (2 persone)'+(v&&!v.verificato?' <span class="tbd">provvisorio</span>':'')+'</th><td>'+m(voli)+'</td><td><span class="tbd">–</span></td></tr>'+
-    '<tr><th scope="row">Accesso all’aeroporto (2 persone)</th><td>'+(v&&acc==null?'<span class="tbd">non stimato</span>':m(acc))+'</td><td><span class="tbd">–</span></td></tr>'+
-    '<tr><th scope="row">Alloggi ('+quota+(conCase?' di '+esc(money(a.totale,cur)):'')+')</th><td>'+m(all)+'</td><td>'+m(all)+'</td></tr>'+
-    ex.map(e=>'<tr><th scope="row">'+esc(e.voce)+' ('+quota+')</th><td>'+(e.q==null?tbd:m(e.q))+'</td><td>'+(e.q==null?tbd:m(e.q))+'</td></tr>').join("")+
-    '</tbody><tfoot><tr><th scope="row">Totale'+(parz?' parziale':'')+'</th><td>'+esc(money(vola,cur))+'</td><td>'+esc(money(ospita,cur))+'</td></tr></tfoot></table></div>'+
-    '<p class="fare-note">Per tutto il gruppo: <strong>'+esc(money(gruppo,cur))+'</strong> ('+esc(adulti)+' biglietti con l’accesso all’aeroporto, le case e gli extra già definiti).</p>'+
+  /* due celle per lato: la coppia e la persona (metà). Numero → importi; null → –; testo → nota in corsivo */
+  const due=x=>typeof x==="number"?'<td>'+m(x)+'</td><td>'+m(x/2)+'</td>':x==null?'<td><span class="tbd">–</span></td><td><span class="tbd">–</span></td>':'<td><span class="tbd">'+esc(x)+'</span></td><td><span class="tbd">'+esc(x)+'</span></td>';
+  const riga=(voce,vv,vo)=>'<tr><th scope="row">'+voce+'</th>'+due(vv)+due(vo)+'</tr>';
+  const nomeLuogo=c=>LUOGHI[c]||c,riNome=riCfg?(riCfg.da||[]).map(nomeLuogo).join(", ")+" → "+(riCfg.a||[]).map(nomeLuogo).join(", "):ri?nomeLuogo(ri.r.da)+" → "+nomeLuogo(ri.r.a):"";
+  const riN=(ri&&ri.adulti)||(riCfg&&riCfg.adulti)||2;
+  box.innerHTML='<div class="fare-stats"><div class="fare-stat"><b>'+esc(money(vola,cur))+'</b><small>per coppia che vola dall’Italia'+(parz?' (parziale)':'')+' · '+esc(money(vola/2,cur))+' a persona</small></div><div class="fare-stat"><b>'+esc(money(ospita,cur))+'</b><small>per la coppia che vi ospita'+(parz?' (parziale)':'')+' · '+esc(money(ospita/2,cur))+' a persona</small></div></div>'+
+    '<div class="fare-table"><table class="tot-table"><thead><tr><th scope="col">Voce</th><th scope="col">Coppia che vola</th><th scope="col">A persona che vola</th><th scope="col">Coppia che ospita</th><th scope="col">A persona che ospita</th></tr></thead><tbody>'+
+    riga('Voli (2 persone)'+(v&&!v.verificato?' <span class="tbd">provvisorio</span>':''),voli,null)+
+    riga('Accesso all’aeroporto (2 persone)',v&&acc==null?'non stimato':acc,null)+
+    (mostraRi?riga('Volo di rientro '+esc(riNome)+' ('+esc(riN)+' persone)',null,ri?riTot:'da rilevare'):'')+
+    riga('Alloggi ('+quota+(conCase?' di '+esc(money(a.totale,cur)):'')+')',all,all)+
+    ex.map(e=>riga(esc(e.voce)+' ('+quota+')',e.q==null?'da definire':e.q,e.q==null?'da definire':e.q)).join("")+
+    '</tbody><tfoot><tr><th scope="row">Totale'+(parz?' parziale':'')+'</th>'+due(vola)+due(ospita)+'</tr></tfoot></table></div>'+
+    '<p class="fare-note">Per tutto il gruppo: <strong>'+esc(money(gruppo,cur))+'</strong> ('+esc(adulti)+' biglietti con l’accesso all’aeroporto'+(mostraRi?', il rientro di chi ospita':'')+', le case e gli extra già definiti).</p>'+
     (parz?'<p class="fare-note">Totale parziale: '+esc(perche.join("; "))+'.</p>':'')+
     '<p class="fare-note">Non compresi: pasti, attività e ingressi a pagamento, ESTA, assicurazione di viaggio, bagaglio da stiva se non incluso, eventuali pulizie o tasse non comprese nel prezzo mostrato'+(nulli.length?'; per ora anche '+esc(nulli.join(" e "))+', da definire':'')+'.</p>';}
 

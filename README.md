@@ -43,7 +43,7 @@ Il deploy parte da solo a ogni push su `main`.
 
 ## Storico prezzi voli
 
-Ogni due giorni il workflow `.github/workflows/voli.yml` («Prezzi voli e alloggi») cerca su Google Flights (tramite [SerpApi](https://serpapi.com/google-flights-api)) i prezzi dei voli dei viaggi attivi, aggiunge le righe a `public/<slug>/voli.csv`, fa lo stesso per gli alloggi (vedi sotto), committa e ripubblica il sito. La pagina del viaggio legge il proprio CSV e mostra il costo reale a persona e per coppia (biglietto andata e ritorno verificato più accesso all'aeroporto), compagnia, scali e durata, gli itinerari verificati per aeroporto, il grafico dell'andamento e la tabella dei prezzi «a partire da» per combinazione di date.
+Ogni due giorni il workflow `.github/workflows/voli.yml` («Prezzi voli e alloggi») cerca su Google Flights (tramite [SerpApi](https://serpapi.com/google-flights-api)) i prezzi dei voli dei viaggi attivi, aggiunge le righe a `public/<slug>/voli.csv`, fa lo stesso per gli alloggi (vedi sotto), committa e ripubblica il sito. La pagina del viaggio legge il proprio CSV e mostra il costo reale a persona e per coppia (biglietto andata e ritorno verificato più accesso all'aeroporto), compagnia, scali e durata, la tabella «Itinerari per aeroporto» (tutti gli aeroporti di partenza: verificato se c'è un itinerario andata e ritorno dallo stesso aeroporto, altrimenti il prezzo «a partire da» segnato con un asterisco), il grafico dell'andamento e la tabella dei prezzi «a partire da» per combinazione di date.
 
 ### Configurazione
 
@@ -63,11 +63,21 @@ Gli aeroporti di una tratta vanno in un'unica ricerca (Google Flights li raggrup
 
 ### Budget
 
-Il piano gratuito di SerpApi ha **250 ricerche al mese**, condivise tra tutti i viaggi attivi. Ogni viaggio costa `(coppie di date + aeroporti di partenza)` ricerche per esecuzione, e le esecuzioni sono al massimo 16 al mese: Ovest 2027 = (9 + 3) × 16 = 192. Restano 58 ricerche al mese: circa **4 esecuzioni manuali** (`gh workflow run`) per chiave. Gli alloggi hanno una chiave e un budget separati. Sopra 200 lo script avvisa, sopra 250 si ferma prima di fare qualunque chiamata. Per controllare il piano senza chiave e senza chiamate:
+Il piano gratuito di SerpApi ha **250 ricerche al mese**, condivise tra tutti i viaggi attivi. Ogni viaggio costa `(coppie di date + aeroporti di partenza + date del rientro di chi ospita)` ricerche per esecuzione, e le esecuzioni sono al massimo 16 al mese: Ovest 2027 = (9 + 3 + 1) × 16 = 208. Restano 42 ricerche al mese: circa **3 esecuzioni manuali** (`gh workflow run`, 13 ricerche ciascuna). Gli alloggi hanno una chiave e un budget separati. Sopra 220 lo script avvisa, sopra 250 si ferma prima di fare qualunque chiamata. Per controllare il piano senza chiave e senza chiamate:
 
 ```sh
 npm run voli:dry
 ```
+
+### Volo di rientro di chi ospita
+
+Chi ospita vive a Denver: a fine viaggio consegna il SUV a Bozeman e torna a casa in aereo. Con `voli.rientroOspiti` lo script fa anche una ricerca di **solo andata** (Google Flights `type=2`) per quel volo, sulla stessa chiave dei voli:
+
+```js
+rientroOspiti: { attivo: true, adulti: 2, da: ['BZN'], a: ['DEN'], date: ['2027-07-31'] },
+```
+
+Le opzioni finiscono in `voli.csv` come righe `tipo=rientro` (stesse colonne, nessuna colonna nuova; `prezzo` è il totale per gli adulti indicati e `prezzo_persona` la quota a testa; `migliore=1` sulla più economica). Se la ricerca fallisce è solo un avviso. La pagina le ignora per andata, ritorno e «a partire da», e le usa per una riga nella sezione voli e per la riga «Volo di rientro» del conto, a carico della coppia che ospita.
 
 ### Esecuzione manuale e calibrazione
 
@@ -100,7 +110,7 @@ Una riga per ogni opzione restituita, mai cancellata (lo storico cresce a ogni e
 | Colonna | Significato |
 | --- | --- |
 | `run` | data e ora UTC dell'esecuzione, uguale per tutte le sue righe |
-| `tipo` | `andata` (ricerche per coppia di date) o `ritorno` (dettagli del ritorno dell'opzione più economica) |
+| `tipo` | `andata` (ricerche per coppia di date), `ritorno` (dettagli del ritorno dell'opzione più economica) o `rientro` (volo di solo andata di chi ospita: `data_andata` = data del volo, `data_ritorno` e `gruppo` vuoti) |
 | `data_andata`, `data_ritorno` | coppia di date cercata |
 | `sezione`, `rango` | `best` o `other` di Google Flights e posizione nella lista |
 | `prezzo`, `valuta` | prezzo restituito per l'intero itinerario |
@@ -126,16 +136,20 @@ Configurazione in `src/viaggi.js`:
 alloggi: {
   attivo: true,
   adulti: 6, camere: 3, bagni: 2,   // minimi: una camera per coppia, due bagni
+  paese: 'us',                       // Booking: scarta risultati in altri paesi
+  raggioKm: 25,                      // solo case entro 25 km dal centro della tappa
   fonti: ['airbnb', 'booking'],
   tappe: [
-    { id: 'denver', nome: 'Denver', q: 'Denver, CO', dal: '2027-07-17', al: '2027-07-18' },
-    // …; `nota` facoltativa, mostrata nella scheda della tappa
+    { id: 'denver', nome: 'Denver', q: 'Denver, Colorado, USA', centro: [39.7392, -104.9903], dal: '2027-07-17', al: '2027-07-18' },
+    // …; facoltativi: `raggioKm` (per tappa), `vicino` (nome del posto da cui si misura la distanza
+    // in pagina, es. «West Yellowstone»), `nota` (mostrata nella scheda della tappa)
   ],
 }
 ```
 
 - **Airbnb** filtra lato API: `room_type=entire_home`, `bedrooms` e `bathrooms` minimi. Il prezzo è quello di tutto il soggiorno.
 - **Booking.com** non ha filtri su camere e bagni: si chiede un'unica unità per sei (`rooms=1`) tra appartamenti e case vacanza (`property_types=201,220`) e lo script tiene solo le strutture che dichiarano almeno 3 camere e 2 bagni nella somma di `rooms[]`. Quelle che non li dichiarano vengono scartate.
+- **Vicino alla tappa:** con `centro: [lat, lon]` lo script calcola la distanza di ogni casa dalle sue coordinate (`gps_coordinates` di entrambe le fonti) e scarta quelle oltre `raggioKm` (della tappa, altrimenti `alloggi.raggioKm`, di default 25), con un avviso per fonte su quante ne ha scartate. Scarta anche le strutture senza coordinate, di entrambe le fonti (di norma ci sono sempre). Su Airbnb la ricerca è già limitata al riquadro attorno al centro (`map_bounds`, nord,est,sud,ovest, insieme a `q`). In pagina ogni scheda mostra «a X km da …». Serve dopo che per West Yellowstone era uscita una casa in Idaho e per Gardiner una in Nuova Zelanda.
 - Le tappe già iniziate non si cercano più.
 
 Chiave e **budget separati** dai voli: secret `SERPAPI_KEY_ALLOGGI`, 250 ricerche al mese. Ogni viaggio costa `tappe × fonti` ricerche per esecuzione: Ovest 2027 = 6 × 2 × 16 = 192 al mese; anche qui restano circa 4 esecuzioni manuali al mese.
@@ -161,10 +175,11 @@ gh workflow run voli.yml -f cosa=alloggi
 | `valutazione`, `scala`, `recensioni` | voto nella scala della fonte (5 per Airbnb, 10 per Booking) e numero di recensioni |
 | `info` | note della fonte (es. «for 3 nights», disponibilità) |
 | `link`, `id` | link all'annuncio (solo https) e id della fonte |
+| `lat`, `lon`, `distanza_km` | coordinate della casa e distanza in km dal centro della tappa (vuote se la fonte non le dà). Le righe della prima versione del CSV, senza queste colonne, vengono migrate con i campi vuoti; la pagina le usa solo finché per quella tappa non ci sono righe nuove con la distanza |
 
 ## Totale indicativo
 
-La sezione «Il conto, più o meno» somma, per la coppia che vola dall'Italia, due biglietti verificati, due quote di accesso all'aeroporto, un terzo delle case e un terzo degli extra; per la coppia che ospita, un terzo delle case e degli extra. Il numero di coppie sta in `costi.coppie`. Gli extra sono voci a mano in `costi.extra` (SerpApi non ha un motore per il noleggio auto, nemmeno su Booking): con `importo: null` restano «da definire» e fuori dalla somma, e il totale è marcato parziale finché manca qualcosa (tappe senza prezzo, ritorno non verificato, extra da definire). Non compresi: pasti, attività e ingressi a pagamento, ESTA, assicurazione, bagaglio da stiva se non incluso, eventuali pulizie o tasse non comprese nel prezzo mostrato.
+La sezione «Il conto, più o meno» somma, per la coppia che vola dall'Italia, due biglietti verificati, due quote di accesso all'aeroporto, un terzo delle case e un terzo degli extra; per la coppia che ospita, il volo di rientro Bozeman → Denver (se configurato; «da rilevare» finché non c'è un prezzo), un terzo delle case e degli extra. Per ogni voce la tabella mostra la cifra per coppia e quella a persona (metà). Il numero di coppie sta in `costi.coppie`. Gli extra sono voci a mano in `costi.extra` (SerpApi non ha un motore per il noleggio auto, nemmeno su Booking): con `importo: null` restano «da definire» e fuori dalla somma, e il totale è marcato parziale finché manca qualcosa (tappe senza prezzo, ritorno non verificato, rientro da rilevare, extra da definire). Non compresi: pasti, attività e ingressi a pagamento, ESTA, assicurazione, bagaglio da stiva se non incluso, eventuali pulizie o tasse non comprese nel prezzo mostrato.
 
 ## Playlist del viaggio
 

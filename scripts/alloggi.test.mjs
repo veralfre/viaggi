@@ -6,8 +6,8 @@ import path from 'node:path'
 import { after, describe, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { viaggi } from '../src/viaggi.js'
-import { HEADER, aNotte, attivi, esegui, fetchFixture, parametri, stimaBudget, strutture, tappe } from './alloggi.mjs'
-import { parseCSV } from './serpapi.mjs'
+import { HEADER, HEADER_V1, aNotte, paeseBooking, attivi, distanzaKm, esegui, raggioDi, riquadro, fetchFixture, parametri, stimaBudget, strutture, tappe } from './alloggi.mjs'
+import { csvRiga, parseCSV } from './serpapi.mjs'
 import { stimaBudget as stimaVoli } from './voli.mjs'
 
 const QUI = path.dirname(fileURLToPath(import.meta.url))
@@ -21,17 +21,19 @@ const silenzio = () => {
   return { msgs, info: (m) => msgs.info.push(m), warn: (m) => msgs.warn.push(m), error: (m) => msgs.error.push(m) }
 }
 const minimi = { notti: 3, camere: 3, bagni: 2 }
+const vicino = { ...minimi, centro: [43.4799, -110.7624], raggioKm: 25 }
 
 describe('configurazione e budget', () => {
   test('parametri per fonte', () => {
     const a = parametri('airbnb', al, jackson, { api_key: 'k' })
     assert.deepEqual(Object.fromEntries(a), {
-      engine: 'airbnb', q: 'Jackson, WY', check_in_date: '2027-07-21', check_out_date: '2027-07-24', adults: '6',
+      engine: 'airbnb', q: 'Jackson, Wyoming, USA', check_in_date: '2027-07-21', check_out_date: '2027-07-24', adults: '6',
       currency: 'EUR', bedrooms: '3', bathrooms: '2', room_type: 'entire_home', api_key: 'k',
+      map_bounds: '43.7045,-110.4529,43.2553,-111.0719',
     })
     const b = parametri('booking', al, jackson)
     assert.deepEqual(Object.fromEntries(b), {
-      engine: 'booking', q: 'Jackson, WY', check_in_date: '2027-07-21', check_out_date: '2027-07-24', adults: '6',
+      engine: 'booking', q: 'Jackson, Wyoming, USA', check_in_date: '2027-07-21', check_out_date: '2027-07-24', adults: '6',
       currency: 'EUR', rooms: '1', property_types: '201,220',
     })
     assert.equal(b.has('no_cache'), false)
@@ -49,20 +51,22 @@ describe('configurazione e budget', () => {
     assert.deepEqual(stimaBudget([ovest], '2026-10-28'), { perEsecuzione: 12, alMese: 192, livello: 'ok' })
     assert.deepEqual(stimaBudget([ovest], '2027-07-24'), { perEsecuzione: 6, alMese: 96, livello: 'ok' })
     assert.equal(stimaBudget([ovest, ovest], '2026-10-28').livello, 'errore')
-    assert.equal(stimaVoli([ovest], '2026-10-28').perEsecuzione, 12)
+    assert.equal(stimaVoli([ovest], '2026-10-28').perEsecuzione, 13)
   })
 })
 
 describe('normalizzazione', () => {
   test('Airbnb: totale del soggiorno, media a notte, scarta sotto i minimi e senza prezzo', () => {
-    const s = strutture('airbnb', json('airbnb'), minimi)
+    const stat = {}
+    const s = strutture('airbnb', json('airbnb'), { ...vicino, stat })
     assert.deepEqual(s.map((x) => x.nome), ['Cabin with Teton views, hot tub', 'Downtown townhouse, walk to the square', 'New listing near Snake River'])
+    assert.deepEqual(stat, { lontani: 1 }) // la fattoria in Idaho, a ~39 km
     assert.deepEqual(s[0], {
       nome: 'Cabin with Teton views, hot tub', tipo: 'Home in Jackson', totale: 2340, a_notte: 780, tasse: '', valuta: 'EUR',
       camere: 3, bagni: 2, letti: 5, ospiti: '', valutazione: 4.92, scala: 5, recensioni: 87,
       info: 'for 3 nights · Log cabin near the town square, with a hot tub and a deck',
       link: 'https://www.airbnb.com/rooms/51234567890123456?check_in=2027-07-21&check_out=2027-07-24&adults=6',
-      id: '51234567890123456', rango: 1,
+      id: '51234567890123456', lat: 43.481, lon: -110.76, distanza_km: 0.2, rango: 1,
     })
     assert.equal(s[1].bagni, 2.5)
     assert.equal(s[2].camere, null) // campi assenti: tenuta, il filtro è lato API
@@ -70,18 +74,51 @@ describe('normalizzazione', () => {
   })
 
   test('Booking: camere e bagni da rooms[], filtro a valle, link solo https', () => {
-    const s = strutture('booking', json('booking'), minimi)
+    const stat = {}
+    const s = strutture('booking', json('booking'), { ...vicino, stat })
     assert.deepEqual(s.map((x) => x.nome), ['Elk Run, "The Lodge" Townhome', 'Wilson Creek House, with deck'])
+    assert.deepEqual(stat, { senzaCoordinate: 1, lontani: 1 })
     assert.deepEqual(s[0], {
       nome: 'Elk Run, "The Lodge" Townhome', tipo: 'Entire home', totale: 2190, a_notte: 730, tasse: 205, valuta: 'EUR',
       camere: 3, bagni: 2, letti: 5, ospiti: '', valutazione: 8.9, scala: 10, recensioni: 214,
       info: 'Fabulous · Only 1 left at this price on our site',
       link: 'https://www.booking.com/hotel/us/elk-run-the-lodge.html?checkin=2027-07-21&checkout=2027-07-24&group_adults=6',
-      id: 9123456, rango: 1,
+      id: 9123456, lat: 43.485, lon: -110.755, distanza_km: 0.8, rango: 1,
     })
     assert.equal(s[1].link, '')
     assert.equal(s[1].a_notte, 826.67)
     assert.deepEqual(strutture('booking', json('vuoto'), minimi), [])
+  })
+})
+
+describe('distanza dal centro della tappa', () => {
+  test('emisenoverso e riquadro', () => {
+    assert.equal(Math.round(distanzaKm([43.4799, -110.7624], [43.723, -111.111])), 39)
+    assert.equal(distanzaKm([45, -110], [45, -110]), 0)
+    const r = riquadro([44.6621, -111.1041], 25)
+    assert.ok(Math.abs(distanzaKm([44.6621, -111.1041], [r.north, -111.1041]) - 25) < 0.1)
+    assert.ok(Math.abs(distanzaKm([44.6621, -111.1041], [44.6621, r.east]) - 25) < 0.2)
+    assert.ok(r.north > r.south && r.east > r.west)
+  })
+
+  test('map_bounds solo per Airbnb e solo con il centro; raggio della tappa prima di quello generale', () => {
+    const wy = al.tappe.find((t) => t.id === 'west-yellowstone')
+    const mb = parametri('airbnb', al, wy).get('map_bounds').split(',').map(Number)
+    assert.equal(mb.length, 4)
+    assert.ok(mb[0] > wy.centro[0] && mb[2] < wy.centro[0] && mb[1] > wy.centro[1] && mb[3] < wy.centro[1])
+    assert.equal(parametri('booking', al, wy).has('map_bounds'), false)
+    assert.equal(parametri('airbnb', al, { ...wy, centro: undefined }).has('map_bounds'), false)
+    assert.equal(raggioDi(al, wy), 25)
+    assert.equal(raggioDi(al, { ...wy, raggioKm: 10 }), 10)
+    assert.equal(raggioDi({}, wy), 25)
+  })
+
+  test('senza centro niente filtro per distanza; con centro, senza coordinate si scarta (Airbnb e Booking)', () => {
+    assert.equal(strutture('airbnb', json('airbnb'), minimi).length, 4)
+    const j = { organic_results: [{ name: 'Senza pin', extracted_price: 1000, bedrooms: 3, bathrooms: 2 }] }
+    assert.equal(strutture('airbnb', j, vicino).length, 0)
+    const k = { properties: [{ name: 'Senza pin', extracted_price: 1000, rooms: [{ bedrooms: 3, bathrooms: 2 }], link: 'https://www.booking.com/hotel/us/x.html' }] }
+    assert.equal(strutture('booking', k, vicino).length, 0)
   })
 })
 
@@ -108,6 +145,18 @@ describe('casi particolari', () => {
     ] }
     const s = strutture('airbnb', j, minimi)
     assert.deepEqual(s.map((x) => [x.totale, x.a_notte]), [[2100, 700], [2000, 666.67]])
+  })
+
+  test('Booking: scartati i risultati in un altro paese', () => {
+    assert.equal(paeseBooking('https://www.booking.com/hotel/nz/casa-deco.html?checkin=2027-07-27'), 'nz')
+    assert.equal(paeseBooking(''), '')
+    const j = { properties: [
+      { name: 'Montana', extracted_price: 1000, link: 'https://www.booking.com/hotel/us/a.html', rooms: [{ bedrooms: 3, bathrooms: 2 }] },
+      { name: 'Nuova Zelanda', extracted_price: 400, link: 'https://www.booking.com/hotel/nz/b.html', rooms: [{ bedrooms: 3, bathrooms: 2 }] },
+      { name: 'Senza link', extracted_price: 500, rooms: [{ bedrooms: 3, bathrooms: 2 }] },
+    ] }
+    assert.deepEqual(strutture('booking', j, { ...minimi, paese: 'us' }).map((x) => x.nome), ['Montana'])
+    assert.equal(strutture('booking', j, minimi).length, 3)
   })
 
   test('valuta: solo codici ISO a tre lettere, altrimenti EUR', () => {
@@ -144,6 +193,23 @@ describe('esecuzione completa con fixture', () => {
     assert.equal(existsSync(csv + '.tmp'), false)
   })
 
+  test('migrazione dal CSV senza coordinate: colonne lat, lon, distanza_km vuote, poi accoda', async () => {
+    const d = mkdtempSync(path.join(dir, 'mg-'))
+    const f = path.join(d, 'ovest-2027', 'alloggi.csv')
+    mkdirSync(path.dirname(f), { recursive: true })
+    const vecchia = ['2026-10-28T13:40:06Z', 'booking', 'gardiner', 'Gardiner', '2027-07-27', '2027-07-30', '3', '6', '3', '2', '1',
+      'Casa, con "portico"', 'Entire home', '2500', '833.33', '', 'EUR', '3', '2', '5', '', '9.1', '10', '20', 'Superb',
+      'https://www.booking.com/hotel/us/x.html', '123']
+    writeFileSync(f, HEADER_V1.join(',') + '\n' + csvRiga(vecchia) + '\n')
+    assert.equal(await esegui({ ...base, outDir: d, now: '2026-10-30T05:17:00Z', log: silenzio() }), 0)
+    const r = parseCSV(readFileSync(f, 'utf8'))
+    assert.deepEqual(r[0], HEADER)
+    assert.deepEqual(r[1], [...vecchia, '', '', ''])
+    assert.equal(r.length, 2 + 30)
+    const dk = HEADER.indexOf('distanza_km')
+    assert.ok(r.slice(2).every((x) => x[dk] === '' ? x[1] === 'airbnb' : Number(x[dk]) <= 25))
+  })
+
   test('intestazione diversa: errore e file invariato', async () => {
     const d = mkdtempSync(path.join(dir, 'h-'))
     const f = path.join(d, 'ovest-2027', 'alloggi.csv')
@@ -175,7 +241,7 @@ describe('esecuzione completa con fixture', () => {
     const f0 = fetchFixture(FIXTURE)
     const vuoto = json('vuoto')
     const fetchImpl = async (url) =>
-      new URL(url).searchParams.get('q') === 'Gardiner, MT' ? { ok: true, status: 200, json: async () => vuoto } : f0(url)
+      new URL(url).searchParams.get('q') === 'Gardiner, Montana, USA' ? { ok: true, status: 200, json: async () => vuoto } : f0(url)
     const log = silenzio()
     assert.equal(await esegui({ ...base, fetchImpl, outDir: d, now: '2026-10-28T05:17:00Z', log }), 0)
     const r = parseCSV(readFileSync(path.join(d, 'ovest-2027', 'alloggi.csv'), 'utf8')).slice(1)

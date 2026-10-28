@@ -1,6 +1,23 @@
 {
-  "search_metadata": { "id": "fixture-airbnb", "status": "Success" },
-  "search_parameters": { "engine": "airbnb", "q": "Jackson, WY", "check_in_date": "2027-07-21", "check_out_date": "2027-07-24", "adults": 6, "bedrooms": 3, "bathrooms": 2, "room_type": "entire_home", "currency": "EUR" },
+  "search_metadata": {
+    "id": "fixture-airbnb",
+    "status": "Success",
+    "centro_fixture": [
+      43.4799,
+      -110.7624
+    ]
+  },
+  "search_parameters": {
+    "engine": "airbnb",
+    "q": "Jackson, WY",
+    "check_in_date": "2027-07-21",
+    "check_out_date": "2027-07-24",
+    "adults": 6,
+    "bedrooms": 3,
+    "bathrooms": 2,
+    "room_type": "entire_home",
+    "currency": "EUR"
+  },
   "organic_results": [
     {
       "position": 1,
@@ -12,22 +29,39 @@
       "rating": 4.92,
       "reviews": 87,
       "is_new_listing": false,
-      "badges": ["Guest favorite"],
+      "badges": [
+        "Guest favorite"
+      ],
       "price": "€2,340",
       "extracted_price": 2340,
       "price_qualifier": "for 3 nights",
       "price_breakdown": [
-        { "description": "3 nights x €690", "price": "€2,070", "extracted_price": 2070 },
-        { "description": "Cleaning fee", "price": "€270", "extracted_price": 270 }
+        {
+          "description": "3 nights x €690",
+          "price": "€2,070",
+          "extracted_price": 2070
+        },
+        {
+          "description": "Cleaning fee",
+          "price": "€270",
+          "extracted_price": 270
+        }
       ],
       "check_in_date": "2027-07-21",
       "check_out_date": "2027-07-24",
-      "details": ["3 bedrooms", "5 beds", "2 baths"],
+      "details": [
+        "3 bedrooms",
+        "5 beds",
+        "2 baths"
+      ],
       "bedrooms": 3,
       "beds": 5,
       "bathrooms": 2,
       "free_cancellation": true,
-      "gps_coordinates": { "latitude": 43.48, "longitude": -110.76 }
+      "gps_coordinates": {
+        "latitude": 43.481,
+        "longitude": -110.76
+      }
     },
     {
       "position": 2,
@@ -40,10 +74,18 @@
       "price": "€2,055",
       "extracted_price": 2055,
       "price_qualifier": "for 3 nights",
-      "details": ["4 bedrooms", "6 beds", "2.5 baths"],
+      "details": [
+        "4 bedrooms",
+        "6 beds",
+        "2.5 baths"
+      ],
       "bedrooms": 4,
       "beds": 6,
-      "bathrooms": 2.5
+      "bathrooms": 2.5,
+      "gps_coordinates": {
+        "latitude": 43.47,
+        "longitude": -110.79
+      }
     },
     {
       "position": 3,
@@ -55,7 +97,15 @@
       "price": "€2,610",
       "extracted_price": 2610,
       "price_qualifier": "total",
-      "details": ["3 bedrooms", "4 beds", "2 baths"]
+      "details": [
+        "3 bedrooms",
+        "4 beds",
+        "2 baths"
+      ],
+      "gps_coordinates": {
+        "latitude": 43.6,
+        "longitude": -110.9
+      }
     },
     {
       "position": 4,
@@ -70,7 +120,11 @@
       "price_qualifier": "for 3 nights",
       "bedrooms": 2,
       "beds": 3,
-      "bathrooms": 1
+      "bathrooms": 1,
+      "gps_coordinates": {
+        "latitude": 43.49,
+        "longitude": -110.77
+      }
     },
     {
       "position": 5,
@@ -79,8 +133,34 @@
       "name": "Sold out, no price",
       "link": "https://www.airbnb.com/rooms/91234567890123456",
       "bedrooms": 3,
-      "bathrooms": 2
+      "bathrooms": 2,
+      "gps_coordinates": {
+        "latitude": 43.475,
+        "longitude": -110.765
+      }
+    },
+    {
+      "position": 6,
+      "listing_id": "10234567890123456",
+      "title": "Home in Driggs",
+      "name": "Farmhouse in Teton Valley, Idaho",
+      "link": "https://www.airbnb.com/rooms/10234567890123456",
+      "rating": 4.8,
+      "reviews": 40,
+      "price": "€1,500",
+      "extracted_price": 1500,
+      "price_qualifier": "for 3 nights",
+      "bedrooms": 3,
+      "beds": 5,
+      "bathrooms": 2,
+      "gps_coordinates": {
+        "latitude": 43.723,
+        "longitude": -111.111
+      }
     }
   ],
-  "serpapi_pagination": { "current": 1, "next": "https://serpapi.com/search.json?engine=airbnb&page=2" }
+  "serpapi_pagination": {
+    "current": 1,
+    "next": "https://serpapi.com/search.json?engine=airbnb&page=2"
+  }
 }

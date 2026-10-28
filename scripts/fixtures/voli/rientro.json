@@ -1,0 +1,39 @@
+{
+  "search_metadata": { "id": "fixture-rientro", "status": "Success" },
+  "search_parameters": { "engine": "google_flights", "type": "2", "departure_id": "BZN", "arrival_id": "DEN", "outbound_date": "2027-07-31", "adults": 2, "currency": "EUR" },
+  "best_flights": [
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bozeman Yellowstone", "id": "BZN", "time": "2027-07-31 12:30" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-31 14:35" }, "duration": 125, "airline": "United", "flight_number": "UA 1180" }
+      ],
+      "layovers": [],
+      "total_duration": 125,
+      "price": 412,
+      "type": "One way",
+      "booking_token": "book-rientro-ua"
+    },
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bozeman Yellowstone", "id": "BZN", "time": "2027-07-31 15:10" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-31 17:20" }, "duration": 130, "airline": "Southwest", "flight_number": "WN 2210" }
+      ],
+      "layovers": [],
+      "total_duration": 130,
+      "price": 298,
+      "type": "One way",
+      "booking_token": "book-rientro-wn"
+    }
+  ],
+  "other_flights": [
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bozeman Yellowstone", "id": "BZN", "time": "2027-07-31 06:00" }, "arrival_airport": { "name": "Aeroporto di Salt Lake City", "id": "SLC", "time": "2027-07-31 07:35" }, "duration": 95, "airline": "Delta", "flight_number": "DL 2803" },
+        { "departure_airport": { "name": "Aeroporto di Salt Lake City", "id": "SLC", "time": "2027-07-31 09:00" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-31 10:50" }, "duration": 110, "airline": "Delta", "flight_number": "DL 1544" }
+      ],
+      "layovers": [ { "duration": 85, "name": "Aeroporto di Salt Lake City", "id": "SLC" } ],
+      "total_duration": 290,
+      "price": 356,
+      "type": "One way",
+      "booking_token": "book-rientro-dl"
+    }
+  ]
+}

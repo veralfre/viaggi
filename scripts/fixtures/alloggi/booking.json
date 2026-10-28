@@ -1,6 +1,22 @@
 {
-  "search_metadata": { "id": "fixture-booking", "status": "Success" },
-  "search_parameters": { "engine": "booking", "q": "Jackson, WY", "check_in_date": "2027-07-21", "check_out_date": "2027-07-24", "adults": 6, "rooms": 1, "property_types": "201,220", "currency": "EUR" },
+  "search_metadata": {
+    "id": "fixture-booking",
+    "status": "Success",
+    "centro_fixture": [
+      43.4799,
+      -110.7624
+    ]
+  },
+  "search_parameters": {
+    "engine": "booking",
+    "q": "Jackson, WY",
+    "check_in_date": "2027-07-21",
+    "check_out_date": "2027-07-24",
+    "adults": 6,
+    "rooms": 1,
+    "property_types": "201,220",
+    "currency": "EUR"
+  },
   "properties": [
     {
       "position": 1,
@@ -16,13 +32,27 @@
       "taxes_and_fees": "€205",
       "extracted_taxes_and_fees": 205,
       "rooms": [
-        { "name": "Three-Bedroom House", "type": "Entire home", "beds": 5, "bed_options": "2 king beds, 1 queen bed, 2 single beds", "bedrooms": 3, "bathrooms": 2, "kitchens": 1, "living_rooms": 1, "size": "1,800 ft²" }
+        {
+          "name": "Three-Bedroom House",
+          "type": "Entire home",
+          "beds": 5,
+          "bed_options": "2 king beds, 1 queen bed, 2 single beds",
+          "bedrooms": 3,
+          "bathrooms": 2,
+          "kitchens": 1,
+          "living_rooms": 1,
+          "size": "1,800 ft²"
+        }
       ],
       "rating": 8.9,
       "rating_text": "Fabulous",
       "reviews": 214,
       "free_cancellation": true,
-      "availability": "Only 1 left at this price on our site"
+      "availability": "Only 1 left at this price on our site",
+      "gps_coordinates": {
+        "latitude": 43.485,
+        "longitude": -110.755
+      }
     },
     {
       "position": 2,
@@ -36,11 +66,21 @@
       "price_per_night": "€550",
       "extracted_price_per_night": 550,
       "rooms": [
-        { "name": "Two-Bedroom Apartment", "type": "Entire apartment", "beds": 4, "bedrooms": 2, "bathrooms": 2 }
+        {
+          "name": "Two-Bedroom Apartment",
+          "type": "Entire apartment",
+          "beds": 4,
+          "bedrooms": 2,
+          "bathrooms": 2
+        }
       ],
       "rating": 8.1,
       "rating_text": "Very good",
-      "reviews": 63
+      "reviews": 63,
+      "gps_coordinates": {
+        "latitude": 43.46,
+        "longitude": -110.78
+      }
     },
     {
       "position": 3,
@@ -52,11 +92,21 @@
       "extracted_price": 2480,
       "currency": "EUR",
       "rooms": [
-        { "name": "Four-Bedroom House", "type": "Entire home", "beds": 6, "bedrooms": 4, "bathrooms": 3 }
+        {
+          "name": "Four-Bedroom House",
+          "type": "Entire home",
+          "beds": 6,
+          "bedrooms": 4,
+          "bathrooms": 3
+        }
       ],
       "rating": 9.3,
       "rating_text": "Superb",
-      "reviews": 41
+      "reviews": 41,
+      "gps_coordinates": {
+        "latitude": 43.455,
+        "longitude": -110.8
+      }
     },
     {
       "position": 4,
@@ -67,9 +117,65 @@
       "price": "€1,200",
       "extracted_price": 1200,
       "currency": "EUR",
-      "rooms": [ { "name": "Studio", "type": "Entire apartment", "beds": 2 } ],
+      "rooms": [
+        {
+          "name": "Studio",
+          "type": "Entire apartment",
+          "beds": 2
+        }
+      ],
       "rating": 7.6,
-      "reviews": 300
+      "reviews": 300,
+      "gps_coordinates": {
+        "latitude": 43.48,
+        "longitude": -110.762
+      }
+    },
+    {
+      "position": 5,
+      "property_id": 9567890,
+      "name": "House without map pin",
+      "type": "Vacation Home",
+      "link": "https://www.booking.com/hotel/us/no-pin.html",
+      "price": "€1,900",
+      "extracted_price": 1900,
+      "currency": "EUR",
+      "rooms": [
+        {
+          "name": "Three-Bedroom House",
+          "type": "Entire home",
+          "beds": 5,
+          "bedrooms": 3,
+          "bathrooms": 2
+        }
+      ],
+      "rating": 8.0,
+      "reviews": 12
+    },
+    {
+      "position": 6,
+      "property_id": 9678901,
+      "name": "Ranch near Idaho Falls",
+      "type": "Vacation Home",
+      "link": "https://www.booking.com/hotel/us/ranch-idaho-falls.html",
+      "price": "€1,400",
+      "extracted_price": 1400,
+      "currency": "EUR",
+      "rooms": [
+        {
+          "name": "Four-Bedroom House",
+          "type": "Entire home",
+          "beds": 6,
+          "bedrooms": 4,
+          "bathrooms": 2
+        }
+      ],
+      "rating": 8.4,
+      "reviews": 30,
+      "gps_coordinates": {
+        "latitude": 43.4917,
+        "longitude": -112.034
+      }
     }
   ]
 }

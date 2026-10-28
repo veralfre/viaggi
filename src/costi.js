@@ -58,16 +58,23 @@ export function datiPagina(v, extra = {}) {
     valuta: 'EUR',
     coppie: v.costi?.coppie ?? null,
     adultiInVolo: adulti,
+    partenze: v.voli?.andata?.da ?? null,
     accesso: acc ? { aeroporti: acc, persona } : null,
     alloggi: al
       ? {
           adulti: al.adulti,
           camere: al.camere,
           bagni: al.bagni,
-          tappe: al.tappe.map((t) => ({ id: t.id, nome: t.nome, dal: t.dal, al: t.al, notti: notti(t.dal, t.al), nota: t.nota ?? '' })),
+          tappe: al.tappe.map((t) => ({
+            id: t.id, nome: t.nome, dal: t.dal, al: t.al, notti: notti(t.dal, t.al), nota: t.nota ?? '',
+            vicino: t.vicino ?? t.nome, raggioKm: t.raggioKm ?? al.raggioKm ?? null,
+          })),
         }
       : null,
     extra: (v.costi?.extra ?? []).map((e) => ({ voce: e.voce, importo: typeof e.importo === 'number' ? e.importo : null })),
+    rientro: v.voli?.rientroOspiti?.attivo === true
+      ? { adulti: v.voli.rientroOspiti.adulti, da: v.voli.rientroOspiti.da, a: v.voli.rientroOspiti.a, date: v.voli.rientroOspiti.date }
+      : null,
     playlist: datiPlaylist(extra.playlist, extra.spotify, extra.generi),
   }
 }

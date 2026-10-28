@@ -24,11 +24,34 @@ export const LIMITE_MESE = 250
 export const SOGLIA_AVVISO = 200
 export const FONTI = ['airbnb', 'booking']
 
-export const HEADER = [
+export const HEADER_V1 = [
   'run', 'fonte', 'tappa', 'luogo', 'check_in', 'check_out', 'notti', 'adulti', 'camere_min', 'bagni_min',
   'rango', 'nome', 'tipo', 'totale', 'a_notte', 'tasse', 'valuta', 'camere', 'bagni', 'letti', 'ospiti',
   'valutazione', 'scala', 'recensioni', 'info', 'link', 'id',
 ]
+// v2: coordinate e distanza dal centro della tappa (le righe v1 vengono migrate con i campi vuoti).
+export const HEADER = [...HEADER_V1, 'lat', 'lon', 'distanza_km']
+export const RAGGIO_KM = 25
+
+/** Distanza in km tra due punti [lat, lon] (formula dell'emisenoverso). */
+export function distanzaKm(a, b) {
+  const rad = (x) => (x * Math.PI) / 180
+  const dLat = rad(b[0] - a[0])
+  const dLon = rad(b[1] - a[1])
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLon / 2) ** 2
+  return 2 * 6371 * Math.asin(Math.sqrt(h))
+}
+
+/** Riquadro attorno a un centro: { north, east, south, west } a raggioKm in ogni direzione. */
+export function riquadro(centro, km) {
+  const dLat = km / 111.32
+  const dLon = km / (111.32 * Math.cos((centro[0] * Math.PI) / 180))
+  const f = (x) => Number(x.toFixed(4))
+  return { north: f(centro[0] + dLat), east: f(centro[1] + dLon), south: f(centro[0] - dLat), west: f(centro[1] - dLon) }
+}
+
+/** Raggio della tappa: quello della tappa, poi quello degli alloggi, poi RAGGIO_KM. */
+export const raggioDi = (alloggi, tappa) => tappa.raggioKm ?? alloggi.raggioKm ?? RAGGIO_KM
 
 const RADICE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const r2 = (n) => Math.round(n * 100) / 100
@@ -67,6 +90,11 @@ export function parametri(fonte, alloggi, tappa, extra = {}) {
     p = new URLSearchParams({
       engine: 'airbnb', ...comuni, bedrooms: String(alloggi.camere), bathrooms: String(alloggi.bagni), room_type: 'entire_home',
     })
+    // Riquadro attorno al centro della tappa (nord,est,sud,ovest), insieme a q.
+    if (Array.isArray(tappa.centro)) {
+      const r = riquadro(tappa.centro, raggioDi(alloggi, tappa))
+      p.set('map_bounds', [r.north, r.east, r.south, r.west].join(','))
+    }
   } else if (fonte === 'booking') {
     p = new URLSearchParams({ engine: 'booking', ...comuni, rooms: '1', property_types: '201,220' })
   } else {
@@ -85,6 +113,8 @@ const somma = (arr, k) => {
 }
 // Valuta solo se è un codice ISO a tre lettere, altrimenti quella chiesta.
 const valuta = (c) => (typeof c === 'string' && /^[A-Z]{3}$/.test(c) ? c : VALUTA)
+/** Codice paese dal link Booking (…/hotel/us/…), o '' se manca. */
+export const paeseBooking = (u) => /\/hotel\/([a-z]{2})\//.exec(u || '')?.[1] ?? ''
 /** true se il prezzo Airbnb è a notte ("per night", "/ night") e non per il soggiorno. */
 export const aNotte = (q) => typeof q === 'string' && /\bnight\b/i.test(q) && !/for \d+ nights/i.test(q) && !/total/i.test(q)
 
@@ -92,8 +122,11 @@ export const aNotte = (q) => typeof q === 'string' && /\bnight\b/i.test(q) && !/
  * Strutture normalizzate e filtrate (case con almeno `camere` camere e `bagni` bagni).
  * Airbnb: se camere/bagni mancano si tiene (il filtro è già lato API), se sono sotto si scarta.
  * Booking: camere e bagni dalla somma di rooms[]; se mancano si scarta.
+ * Con `centro` ([lat, lon]) e `raggioKm`: distanza da gps_coordinates, scartate le strutture più
+ * lontane; per Booking (che le coordinate le dà sempre) anche quelle senza coordinate.
+ * `stat`, se passato, conta { lontani, senzaCoordinate }.
  */
-export function strutture(fonte, json, { notti, camere, bagni }) {
+export function strutture(fonte, json, { notti, camere, bagni, paese, centro, raggioKm = RAGGIO_KM, stat }) {
   const out = []
   for (const o of risultati(json)) {
     let totale = num(o?.extracted_price)
@@ -144,6 +177,27 @@ export function strutture(fonte, json, { notti, camere, bagni }) {
         id: o.property_id ?? '',
       }
       if (s.camere == null || s.bagni == null || s.camere < camere || s.bagni < bagni) continue
+      // Booking a volte risolve il luogo in un altro paese (Gardiner, MT → Gardiner, NZ): il paese è nel link.
+      if (paese && paeseBooking(o.link) !== paese) continue
+    }
+    const lat = num(o.gps_coordinates?.latitude)
+    const lon = num(o.gps_coordinates?.longitude)
+    s.lat = lat ?? ''
+    s.lon = lon ?? ''
+    s.distanza_km = ''
+    if (Array.isArray(centro)) {
+      if (lat == null || lon == null) {
+        // Senza coordinate non si può verificare la distanza (e la pagina non le mostrerebbe): si scarta.
+        if (stat) stat.senzaCoordinate = (stat.senzaCoordinate || 0) + 1
+        continue
+      } else {
+        const d = distanzaKm(centro, [lat, lon])
+        if (d > raggioKm) {
+          if (stat) stat.lontani = (stat.lontani || 0) + 1
+          continue
+        }
+        s.distanza_km = Math.round(d * 10) / 10
+      }
     }
     out.push(s)
   }
@@ -156,7 +210,7 @@ export function righe({ run, fonte, tappa, alloggi, strutture: lista }) {
   return lista.map((s) => [
     run, fonte, tappa.id, tappa.nome, tappa.dal, tappa.al, n, alloggi.adulti, alloggi.camere, alloggi.bagni,
     s.rango, s.nome, s.tipo, s.totale, s.a_notte, s.tasse, s.valuta, s.camere, s.bagni, s.letti, s.ospiti,
-    s.valutazione, s.scala, s.recensioni, s.info, s.link, s.id,
+    s.valutazione, s.scala, s.recensioni, s.info, s.link, s.id, s.lat, s.lon, s.distanza_km,
   ])
 }
 
@@ -165,24 +219,39 @@ export function cerca(params, opts = {}) {
   return cercaSerpApi(params, { ...opts, conta: (json) => risultati(json).length })
 }
 
-/** fetch finto: airbnb.json o booking.json secondo l'engine; scenari vuoto/chiave. */
-export function fetchFixture(dir, scenario = '') {
+/**
+ * fetch finto: airbnb.json o booking.json secondo l'engine; scenari vuoto/chiave.
+ * Le fixture sono costruite attorno a `search_metadata.centro_fixture`: le coordinate vengono
+ * spostate sul centro della tappa cercata (da `q`), così il filtro per distanza vale per ogni tappa.
+ */
+export function fetchFixture(dir, scenario = '', viaggi = VIAGGI) {
   const leggi = (nome) => JSON.parse(readFileSync(path.join(dir, nome + '.json'), 'utf8'))
+  const centri = new Map(viaggi.flatMap((v) => (v.alloggi?.tappe ?? []).filter((t) => t.centro).map((t) => [t.q, t.centro])))
+  const sposta = (json, centro) => {
+    const rif = json?.search_metadata?.centro_fixture
+    if (!rif || !centro) return json
+    for (const o of risultati(json)) {
+      const g = o.gps_coordinates
+      if (g && typeof g.latitude === 'number') o.gps_coordinates = { latitude: g.latitude + centro[0] - rif[0], longitude: g.longitude + centro[1] - rif[1] }
+    }
+    return json
+  }
   return async (url) => {
-    let nome = new URL(url).searchParams.get('engine')
+    const sp = new URL(url).searchParams
+    let nome = sp.get('engine')
     let status = 200
     if (scenario === 'vuoto') nome = 'vuoto'
     if (scenario === 'chiave') {
       nome = 'chiave'
       status = 401
     }
-    const corpo = leggi(nome)
+    const corpo = sposta(leggi(nome), centri.get(sp.get('q')))
     return { ok: status < 400, status, json: async () => corpo }
   }
 }
 
 export function scriviCsv(file, rows) {
-  scriviCsvComune(file, HEADER, rows)
+  scriviCsvComune(file, HEADER, rows, [HEADER_V1])
 }
 
 function controllaBudget(trips, oggi, log) {
@@ -213,9 +282,19 @@ async function cercaViaggio(v, run, { apiKey, fetchImpl, ritardoRetry, log }) {
         continue
       }
       if (r.stato === 'vuoto') log.warn(v.slug + ' ' + t.id + ' ' + fonte + ': nessun risultato (' + r.motivo + ')')
-      const s = strutture(fonte, r.json, { notti: nottiTra(t.dal, t.al), camere: al.camere, bagni: al.bagni })
+      const stat = { lontani: 0, senzaCoordinate: 0 }
+      const raggio = raggioDi(al, t)
+      const s = strutture(fonte, r.json, {
+        notti: nottiTra(t.dal, t.al), camere: al.camere, bagni: al.bagni, paese: al.paese, centro: t.centro, raggioKm: raggio, stat,
+      })
       const grezzi = risultati(r.json).length
       log.info(v.slug + ' ' + t.id + ' ' + fonte + ': ' + s.length + ' case adatte su ' + grezzi)
+      if (stat.lontani || stat.senzaCoordinate) {
+        log.warn(
+          v.slug + ' ' + t.id + ' ' + fonte + ': scartate ' + stat.lontani + ' oltre ' + raggio + ' km dal centro' +
+            (stat.senzaCoordinate ? ' e ' + stat.senzaCoordinate + ' senza coordinate' : ''),
+        )
+      }
       if (grezzi > 0 && s.length === 0) {
         log.warn(v.slug + ' ' + t.id + ' ' + fonte + ': ' + grezzi + ' risultati ma nessuno con ' + al.camere + ' camere e ' + al.bagni + ' bagni (o senza dati): tutti scartati')
       }
@@ -265,7 +344,12 @@ export async function esegui({
           v.slug + ': ' + al.adulti + ' adulti, almeno ' + al.camere + ' camere e ' + al.bagni + ' bagni, ' + lista.length +
             ' tappe × ' + fontiDi(al).length + ' fonti (' + fontiDi(al).join(', ') + ') = ' + lista.length * fontiDi(al).length + ' ricerche',
         )
-        for (const t of lista) log.info('  ' + t.id + ': ' + t.q + ', ' + t.dal + ' → ' + t.al + ' (' + nottiTra(t.dal, t.al) + ' notti)')
+        for (const t of lista) {
+          log.info(
+            '  ' + t.id + ': ' + t.q + ', ' + t.dal + ' → ' + t.al + ' (' + nottiTra(t.dal, t.al) + ' notti' +
+              (t.centro ? ', entro ' + raggioDi(al, t) + ' km dal centro' : '') + ')',
+          )
+        }
       }
       return controllaBudget(trips, oggi, log).livello === 'errore' ? 1 : 0
     }

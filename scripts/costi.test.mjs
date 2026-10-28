@@ -28,6 +28,8 @@ test('datiPagina: tappe consecutive per 14 notti, extra nulli preservati', () =>
   assert.equal(d.coppie, 3)
   assert.equal(d.adultiInVolo, 4)
   assert.deepEqual(d.accesso.persona, { BLQ: 0, MXP: 57.5, VCE: 41.5 })
+  assert.deepEqual(d.partenze, ['BLQ', 'MXP', 'VCE'])
+  assert.deepEqual(d.rientro, { adulti: 2, da: ['BZN'], a: ['DEN'], date: ['2027-07-31'] })
   const t = d.alloggi.tappe
   assert.equal(t[0].dal, '2027-07-17')
   assert.equal(t.at(-1).al, '2027-07-31')
@@ -38,5 +40,5 @@ test('datiPagina: tappe consecutive per 14 notti, extra nulli preservati', () =>
     { voce: 'Noleggio SUV', importo: null },
     { voce: 'Carburante (circa 2.300 km)', importo: null },
   ])
-  assert.deepEqual(datiPagina({ slug: 'x' }), { versione: 1, valuta: 'EUR', coppie: null, adultiInVolo: null, accesso: null, alloggi: null, extra: [], playlist: null })
+  assert.deepEqual(datiPagina({ slug: 'x' }), { versione: 1, valuta: 'EUR', coppie: null, adultiInVolo: null, partenze: null, accesso: null, alloggi: null, extra: [], rientro: null, playlist: null })
 })

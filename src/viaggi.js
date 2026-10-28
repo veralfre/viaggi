@@ -31,6 +31,8 @@ export const viaggi = [
         MXP: { auto: 55, parcheggio: 120 },
         VCE: { auto: 33, parcheggio: 100 },
       },
+      // Chi ospita consegna il SUV a Bozeman e torna a Denver in aereo (solo andata).
+      rientroOspiti: { attivo: true, adulti: 2, da: ['BZN'], a: ['DEN'], date: ['2027-07-31'] },
     },
     alloggi: {
       attivo: true,
@@ -38,20 +40,26 @@ export const viaggi = [
       camere: 3, // una per coppia
       bagni: 2,
       fonti: ['airbnb', 'booking'],
+      paese: 'us', // Booking: scarta risultati in altri paesi (es. Gardiner in Nuova Zelanda)
+      // Solo case entro raggioKm dal centro della tappa (si può cambiare per tappa con `raggioKm`).
+      // Airbnb cerca anche nel riquadro attorno al centro (map_bounds).
+      raggioKm: 25,
       tappe: [
-        { id: 'denver', nome: 'Denver', q: 'Denver, CO', dal: '2027-07-17', al: '2027-07-18' },
-        { id: 'estes-park', nome: 'Estes Park', q: 'Estes Park, CO', dal: '2027-07-18', al: '2027-07-21' },
-        { id: 'jackson', nome: 'Jackson', q: 'Jackson, WY', dal: '2027-07-21', al: '2027-07-24' },
+        { id: 'denver', nome: 'Denver', q: 'Denver, Colorado, USA', centro: [39.7392, -104.9903], dal: '2027-07-17', al: '2027-07-18' },
+        { id: 'estes-park', nome: 'Estes Park', q: 'Estes Park, Colorado, USA', centro: [40.3772, -105.5217], dal: '2027-07-18', al: '2027-07-21' },
+        { id: 'jackson', nome: 'Jackson', q: 'Jackson, Wyoming, USA', centro: [43.4799, -110.7624], dal: '2027-07-21', al: '2027-07-24' },
         {
           id: 'west-yellowstone',
           nome: 'Zona Old Faithful',
-          q: 'West Yellowstone, MT',
+          q: 'West Yellowstone, Montana, USA',
+          centro: [44.6621, -111.1041],
+          vicino: 'West Yellowstone',
           dal: '2027-07-24',
           al: '2027-07-27',
           nota: 'Dentro il parco non ci sono case vacanza: cerco a West Yellowstone, circa 50 km da Old Faithful.',
         },
-        { id: 'gardiner', nome: 'Gardiner', q: 'Gardiner, MT', dal: '2027-07-27', al: '2027-07-30' },
-        { id: 'bozeman', nome: 'Bozeman', q: 'Bozeman, MT', dal: '2027-07-30', al: '2027-07-31' },
+        { id: 'gardiner', nome: 'Gardiner', q: 'Gardiner, Montana, USA', centro: [45.0321, -110.7057], dal: '2027-07-27', al: '2027-07-30' },
+        { id: 'bozeman', nome: 'Bozeman', q: 'Bozeman, Montana, USA', centro: [45.677, -111.0429], dal: '2027-07-30', al: '2027-07-31' },
       ],
     },
     costi: {
