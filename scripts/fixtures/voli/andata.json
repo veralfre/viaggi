@@ -1,0 +1,63 @@
+{
+  "search_metadata": { "id": "fixture-andata", "status": "Success" },
+  "search_parameters": { "engine": "google_flights", "type": "3", "adults": 4, "currency": "EUR", "hl": "it", "gl": "it" },
+  "best_flights": [
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bologna", "id": "BLQ", "time": "2027-07-17 06:40" }, "arrival_airport": { "name": "Aeroporto di Francoforte", "id": "FRA", "time": "2027-07-17 08:20" }, "duration": 100, "airline": "Lufthansa", "flight_number": "LH 285" },
+        { "departure_airport": { "name": "Aeroporto di Francoforte", "id": "FRA", "time": "2027-07-17 10:05" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-17 12:15" }, "duration": 610, "airline": "Lufthansa", "flight_number": "LH 480" }
+      ],
+      "layovers": [ { "duration": 105, "name": "Aeroporto di Francoforte", "id": "FRA" } ],
+      "total_duration": 755,
+      "price": 3480,
+      "type": "Multi-city",
+      "departure_token": "tok-blq-fra-den"
+    },
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Milano Malpensa", "id": "MXP", "time": "2027-07-17 10:30" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-17 13:50" }, "duration": 680, "airline": "ITA", "flight_number": "AZ 632" }
+      ],
+      "layovers": [],
+      "total_duration": 680,
+      "price": 3920,
+      "type": "Multi-city",
+      "departure_token": "tok-mxp-den"
+    }
+  ],
+  "other_flights": [
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Venezia", "id": "VCE", "time": "2027-07-17 07:00" }, "arrival_airport": { "name": "Aeroporto di Zurigo", "id": "ZRH", "time": "2027-07-17 08:10" }, "duration": 70, "airline": "SWISS", "flight_number": "LX 1675" },
+        { "departure_airport": { "name": "Aeroporto di Zurigo", "id": "ZRH", "time": "2027-07-17 13:10" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-17 16:00" }, "duration": 650, "airline": "SWISS", "flight_number": "LX 26" }
+      ],
+      "layovers": [ { "duration": 300, "name": "Aeroporto di Zurigo", "id": "ZRH" } ],
+      "total_duration": 1020,
+      "price": 3610,
+      "type": "Multi-city",
+      "departure_token": "tok-vce-zrh-den"
+    },
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bologna", "id": "BLQ", "time": "2027-07-17 11:15" }, "arrival_airport": { "name": "Aeroporto di Parigi Charles de Gaulle", "id": "CDG", "time": "2027-07-17 12:55" }, "duration": 100, "airline": "Air France, operato da HOP!", "flight_number": "AF 1529" },
+        { "departure_airport": { "name": "Aeroporto di Parigi Charles de Gaulle", "id": "CDG", "time": "2027-07-17 15:30" }, "arrival_airport": { "name": "Aeroporto di Chicago O'Hare", "id": "ORD", "time": "2027-07-17 17:45" }, "duration": 555, "airline": "Air France", "flight_number": "AF 136" },
+        { "departure_airport": { "name": "Aeroporto di Chicago O'Hare", "id": "ORD", "time": "2027-07-17 19:40" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-17 21:20" }, "duration": 160, "airline": "United", "flight_number": "UA 1041" }
+      ],
+      "layovers": [ { "duration": 155, "name": "Aeroporto di Parigi Charles de Gaulle", "id": "CDG" }, { "duration": 115, "name": "Aeroporto di Chicago O'Hare", "id": "ORD", "overnight": false } ],
+      "total_duration": 1185,
+      "price": 3360,
+      "type": "Multi-city",
+      "departure_token": "tok-blq-cdg-ord-den"
+    },
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Venezia", "id": "VCE", "time": "2027-07-17 09:45" }, "arrival_airport": { "name": "Aeroporto di Amsterdam Schiphol", "id": "AMS", "time": "2027-07-17 11:40" }, "duration": 115, "airline": "KLM", "flight_number": "KL 1652" },
+        { "departure_airport": { "name": "Aeroporto di Amsterdam Schiphol", "id": "AMS", "time": "2027-07-17 13:20" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-17 15:05" }, "duration": 585, "airline": "KLM", "flight_number": "KL 669" }
+      ],
+      "layovers": [ { "duration": 100, "name": "Aeroporto di Amsterdam Schiphol", "id": "AMS" } ],
+      "total_duration": 800,
+      "type": "Multi-city",
+      "departure_token": "tok-senza-prezzo"
+    }
+  ],
+  "price_insights": { "lowest_price": 3360, "price_level": "typical" }
+}

@@ -1,0 +1,31 @@
+{
+  "search_metadata": { "id": "fixture-ritorno", "status": "Success" },
+  "best_flights": [
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bozeman Yellowstone", "id": "BZN", "time": "2027-07-31 06:00" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-31 08:05" }, "duration": 125, "airline": "United", "flight_number": "UA 2214" },
+        { "departure_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-31 16:10" }, "arrival_airport": { "name": "Aeroporto di Francoforte", "id": "FRA", "time": "2027-08-01 08:40" }, "duration": 570, "airline": "Lufthansa", "flight_number": "LH 481" },
+        { "departure_airport": { "name": "Aeroporto di Francoforte", "id": "FRA", "time": "2027-08-01 10:20" }, "arrival_airport": { "name": "Aeroporto di Bologna", "id": "BLQ", "time": "2027-08-01 11:35" }, "duration": 75, "airline": "Lufthansa", "flight_number": "LH 290" }
+      ],
+      "layovers": [ { "duration": 485, "name": "Aeroporto internazionale di Denver", "id": "DEN" }, { "duration": 100, "name": "Aeroporto di Francoforte", "id": "FRA" } ],
+      "total_duration": 1355,
+      "price": 3360,
+      "type": "Multi-city",
+      "booking_token": "book-bzn-den-fra-blq"
+    }
+  ],
+  "other_flights": [
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bozeman Yellowstone", "id": "BZN", "time": "2027-07-31 11:20" }, "arrival_airport": { "name": "Aeroporto di Chicago O'Hare", "id": "ORD", "time": "2027-07-31 15:30" }, "duration": 190, "airline": "United", "flight_number": "UA 1590" },
+        { "departure_airport": { "name": "Aeroporto di Chicago O'Hare", "id": "ORD", "time": "2027-07-31 17:55" }, "arrival_airport": { "name": "Aeroporto di Parigi Charles de Gaulle", "id": "CDG", "time": "2027-08-01 09:00" }, "duration": 485, "airline": "Air France", "flight_number": "AF 137" },
+        { "departure_airport": { "name": "Aeroporto di Parigi Charles de Gaulle", "id": "CDG", "time": "2027-08-01 11:00" }, "arrival_airport": { "name": "Aeroporto di Bologna", "id": "BLQ", "time": "2027-08-01 12:30" }, "duration": 90, "airline": "Air France", "flight_number": "AF 1528" }
+      ],
+      "layovers": [ { "duration": 145, "name": "Aeroporto di Chicago O'Hare", "id": "ORD" }, { "duration": 120, "name": "Aeroporto di Parigi Charles de Gaulle", "id": "CDG" } ],
+      "total_duration": 1150,
+      "price": 3440,
+      "type": "Multi-city",
+      "booking_token": "book-bzn-ord-cdg-blq"
+    }
+  ]
+}
