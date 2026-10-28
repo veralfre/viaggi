@@ -1,16 +1,22 @@
-name: Prezzi voli
+name: Prezzi voli e alloggi
 
-# Ogni due giorni cerca i prezzi dei voli dei viaggi attivi (src/viaggi.js),
-# aggiunge le righe a public/<slug>/voli.csv e ripubblica il sito.
+# Ogni due giorni cerca i prezzi dei voli e degli alloggi dei viaggi attivi
+# (src/viaggi.js), aggiunge le righe a public/<slug>/voli.csv e alloggi.csv
+# e ripubblica il sito: un solo commit e un solo deploy per esecuzione.
 on:
   schedule:
     - cron: '17 5 */2 * *'
   workflow_dispatch:
     inputs:
       calibra:
-        description: Verifica se il prezzo è totale o a persona (2 ricerche, non scrive)
+        description: Solo voli - verifica se il prezzo è totale o a persona (2 ricerche, non scrive, salta gli alloggi)
         type: boolean
         default: false
+      cosa:
+        description: Cosa cercare
+        type: choice
+        options: [tutto, voli, alloggi]
+        default: tutto
 
 permissions:
   contents: read
@@ -33,16 +39,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Cerca i prezzi
+      # Sullo schedule gli input sono vuoti: si cerca tutto.
+      - name: Cerca i prezzi dei voli
+        if: inputs.cosa != 'alloggi'
         run: node scripts/voli.mjs ${{ inputs.calibra && '--calibra' || '' }}
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+      - name: Cerca i prezzi degli alloggi
+        if: ${{ !cancelled() && inputs.cosa != 'voli' && !inputs.calibra }}
+        run: node scripts/alloggi.mjs
+        env:
+          SERPAPI_KEY_ALLOGGI: ${{ secrets.SERPAPI_KEY_ALLOGGI }}
       - name: Salva lo storico
         id: commit
-        if: success() || failure()
+        if: ${{ !cancelled() }}
         run: |
           shopt -s nullglob
-          files=(public/*/voli.csv)
+          files=(public/*/voli.csv public/*/alloggi.csv)
           if [ ${#files[@]} -gt 0 ]; then git add -- "${files[@]}"; fi
           if git diff --cached --quiet; then
             echo "Nessun prezzo nuovo da salvare"
@@ -51,7 +64,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Prezzi voli $(date -u +%F)"
+          git commit -m "Prezzi $(date -u +%F)"
           git pull --rebase origin main
           git push origin HEAD:main
           echo "changed=true" >> "$GITHUB_OUTPUT"

@@ -1,0 +1,75 @@
+{
+  "search_metadata": { "id": "fixture-booking", "status": "Success" },
+  "search_parameters": { "engine": "booking", "q": "Jackson, WY", "check_in_date": "2027-07-21", "check_out_date": "2027-07-24", "adults": 6, "rooms": 1, "property_types": "201,220", "currency": "EUR" },
+  "properties": [
+    {
+      "position": 1,
+      "property_id": 9123456,
+      "name": "Elk Run, \"The Lodge\" Townhome",
+      "type": "Vacation Home",
+      "link": "https://www.booking.com/hotel/us/elk-run-the-lodge.html?checkin=2027-07-21&checkout=2027-07-24&group_adults=6",
+      "price": "€2,190",
+      "extracted_price": 2190,
+      "currency": "EUR",
+      "price_per_night": "€730",
+      "extracted_price_per_night": 730,
+      "taxes_and_fees": "€205",
+      "extracted_taxes_and_fees": 205,
+      "rooms": [
+        { "name": "Three-Bedroom House", "type": "Entire home", "beds": 5, "bed_options": "2 king beds, 1 queen bed, 2 single beds", "bedrooms": 3, "bathrooms": 2, "kitchens": 1, "living_rooms": 1, "size": "1,800 ft²" }
+      ],
+      "rating": 8.9,
+      "rating_text": "Fabulous",
+      "reviews": 214,
+      "free_cancellation": true,
+      "availability": "Only 1 left at this price on our site"
+    },
+    {
+      "position": 2,
+      "property_id": 9234567,
+      "name": "Teton Pines Apartment",
+      "type": "Apartment",
+      "link": "https://www.booking.com/hotel/us/teton-pines-apartment.html",
+      "price": "€1,650",
+      "extracted_price": 1650,
+      "currency": "EUR",
+      "price_per_night": "€550",
+      "extracted_price_per_night": 550,
+      "rooms": [
+        { "name": "Two-Bedroom Apartment", "type": "Entire apartment", "beds": 4, "bedrooms": 2, "bathrooms": 2 }
+      ],
+      "rating": 8.1,
+      "rating_text": "Very good",
+      "reviews": 63
+    },
+    {
+      "position": 3,
+      "property_id": 9345678,
+      "name": "Wilson Creek House, with deck",
+      "type": "Vacation Home",
+      "link": "http://www.booking.com/hotel/us/wilson-creek-house.html",
+      "price": "€2,480",
+      "extracted_price": 2480,
+      "currency": "EUR",
+      "rooms": [
+        { "name": "Four-Bedroom House", "type": "Entire home", "beds": 6, "bedrooms": 4, "bathrooms": 3 }
+      ],
+      "rating": 9.3,
+      "rating_text": "Superb",
+      "reviews": 41
+    },
+    {
+      "position": 4,
+      "property_id": 9456789,
+      "name": "Cowboy Village Studio",
+      "type": "Apartment",
+      "link": "https://www.booking.com/hotel/us/cowboy-village-studio.html",
+      "price": "€1,200",
+      "extracted_price": 1200,
+      "currency": "EUR",
+      "rooms": [ { "name": "Studio", "type": "Entire apartment", "beds": 2 } ],
+      "rating": 7.6,
+      "reviews": 300
+    }
+  ]
+}

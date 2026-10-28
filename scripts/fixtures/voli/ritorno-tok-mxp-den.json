@@ -1,0 +1,29 @@
+{
+  "search_metadata": { "id": "fixture-ritorno-mxp", "status": "Success" },
+  "best_flights": [
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bozeman Yellowstone", "id": "BZN", "time": "2027-07-31 07:10" }, "arrival_airport": { "name": "Aeroporto di Chicago O'Hare", "id": "ORD", "time": "2027-07-31 11:25" }, "duration": 195, "airline": "United", "flight_number": "UA 2044" },
+        { "departure_airport": { "name": "Aeroporto di Chicago O'Hare", "id": "ORD", "time": "2027-07-31 17:30" }, "arrival_airport": { "name": "Aeroporto di Venezia", "id": "VCE", "time": "2027-08-01 09:15" }, "duration": 525, "airline": "United", "flight_number": "UA 976" }
+      ],
+      "layovers": [ { "duration": 365, "name": "Aeroporto di Chicago O'Hare", "id": "ORD" } ],
+      "total_duration": 1085,
+      "price": 3900,
+      "type": "Multi-city",
+      "booking_token": "book-mxp-vce-misto"
+    }
+  ],
+  "other_flights": [
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bozeman Yellowstone", "id": "BZN", "time": "2027-07-31 16:00" }, "arrival_airport": { "name": "Aeroporto di Chicago O'Hare", "id": "ORD", "time": "2027-07-31 20:10" }, "duration": 190, "airline": "United", "flight_number": "UA 2045" },
+        { "departure_airport": { "name": "Aeroporto di Chicago O'Hare", "id": "ORD", "time": "2027-07-31 21:45" }, "arrival_airport": { "name": "Aeroporto di Milano Malpensa", "id": "MXP", "time": "2027-08-01 13:20" }, "duration": 515, "airline": "United", "flight_number": "UA 416" }
+      ],
+      "layovers": [ { "duration": 95, "name": "Aeroporto di Chicago O'Hare", "id": "ORD" } ],
+      "total_duration": 800,
+      "price": 3990,
+      "type": "Multi-city",
+      "booking_token": "book-mxp-mxp"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "search_metadata": { "id": "fixture-ritorno-vce", "status": "Success" },
+  "best_flights": [
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bozeman Yellowstone", "id": "BZN", "time": "2027-07-31 06:00" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-31 08:05" }, "duration": 125, "airline": "United", "flight_number": "UA 2214" },
+        { "departure_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-31 16:10" }, "arrival_airport": { "name": "Aeroporto di Francoforte", "id": "FRA", "time": "2027-08-01 08:40" }, "duration": 570, "airline": "Lufthansa", "flight_number": "LH 481" },
+        { "departure_airport": { "name": "Aeroporto di Francoforte", "id": "FRA", "time": "2027-08-01 10:20" }, "arrival_airport": { "name": "Aeroporto di Bologna", "id": "BLQ", "time": "2027-08-01 11:35" }, "duration": 75, "airline": "Lufthansa", "flight_number": "LH 290" }
+      ],
+      "layovers": [ { "duration": 485, "name": "Aeroporto internazionale di Denver", "id": "DEN" }, { "duration": 100, "name": "Aeroporto di Francoforte", "id": "FRA" } ],
+      "total_duration": 1355,
+      "price": 3650,
+      "type": "Multi-city",
+      "booking_token": "book-vce-blq-misto"
+    },
+    {
+      "flights": [
+        { "departure_airport": { "name": "Aeroporto di Bozeman Yellowstone", "id": "BZN", "time": "2027-07-31 12:30" }, "arrival_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-31 14:35" }, "duration": 125, "airline": "United", "flight_number": "UA 1180" },
+        { "departure_airport": { "name": "Aeroporto internazionale di Denver", "id": "DEN", "time": "2027-07-31 17:40" }, "arrival_airport": { "name": "Aeroporto di Zurigo", "id": "ZRH", "time": "2027-08-01 09:55" }, "duration": 555, "airline": "SWISS", "flight_number": "LX 27" },
+        { "departure_airport": { "name": "Aeroporto di Zurigo", "id": "ZRH", "time": "2027-08-01 11:30" }, "arrival_airport": { "name": "Aeroporto di Venezia", "id": "VCE", "time": "2027-08-01 12:35" }, "duration": 65, "airline": "SWISS", "flight_number": "LX 1676" }
+      ],
+      "layovers": [ { "duration": 185, "name": "Aeroporto internazionale di Denver", "id": "DEN" }, { "duration": 95, "name": "Aeroporto di Zurigo", "id": "ZRH" } ],
+      "total_duration": 1265,
+      "price": 3700,
+      "type": "Multi-city",
+      "booking_token": "book-vce-vce"
+    }
+  ]
+}

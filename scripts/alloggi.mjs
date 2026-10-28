@@ -1,0 +1,340 @@
+#!/usr/bin/env node
+// Storico prezzi alloggi: per ogni viaggio di src/viaggi.js con `alloggi.attivo`
+// cerca case intere su Airbnb e Booking.com (via SerpApi) per ogni tappa futura
+// e aggiunge tutte le strutture trovate a public/<slug>/alloggi.csv.
+//
+//   node scripts/alloggi.mjs                 esecuzione reale (serve SERPAPI_KEY_ALLOGGI)
+//   node scripts/alloggi.mjs --dry-run       piano e budget, senza chiamate
+//   node scripts/alloggi.mjs --slug <slug>   solo quel viaggio
+//   node scripts/alloggi.mjs --fixture <dir> [--fixture-scenario vuoto|chiave] [--out <dir>]
+//
+// Variabili: SERPAPI_KEY_ALLOGGI (chiave e budget separati dai voli), ALLOGGI_NOW.
+
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { notti as nottiTra } from '../src/costi.js'
+import { viaggi as VIAGGI } from '../src/viaggi.js'
+import { ErroreFatale, RITARDO_RETRY_MS, adesso, cerca as cercaSerpApi, logConsole, scriviCsv as scriviCsvComune } from './serpapi.mjs'
+
+export const VALUTA = 'EUR'
+// Budget separato da quello dei voli (altra chiave SerpApi).
+export const ESECUZIONI_MESE = 16
+export const LIMITE_MESE = 250
+export const SOGLIA_AVVISO = 200
+export const FONTI = ['airbnb', 'booking']
+
+export const HEADER = [
+  'run', 'fonte', 'tappa', 'luogo', 'check_in', 'check_out', 'notti', 'adulti', 'camere_min', 'bagni_min',
+  'rango', 'nome', 'tipo', 'totale', 'a_notte', 'tasse', 'valuta', 'camere', 'bagni', 'letti', 'ospiti',
+  'valutazione', 'scala', 'recensioni', 'info', 'link', 'id',
+]
+
+const RADICE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const r2 = (n) => Math.round(n * 100) / 100
+const num = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null)
+
+/** Tappe con check-in da oggi in poi. */
+export function tappe(alloggi, oggi = '') {
+  return alloggi.tappe.filter((t) => !oggi || t.dal >= oggi)
+}
+
+/** Viaggi con alloggi.attivo === true e almeno una tappa futura. */
+export function attivi(viaggi, oggi) {
+  return viaggi.filter((v) => v.alloggi?.attivo === true && tappe(v.alloggi, oggi).length > 0)
+}
+
+const fontiDi = (alloggi) => alloggi.fonti ?? FONTI
+
+/** Ricerche per esecuzione (tappe future × fonti) e stima mensile. */
+export function stimaBudget(trips, oggi = '') {
+  const perEsecuzione = trips.reduce((n, v) => n + tappe(v.alloggi, oggi).length * fontiDi(v.alloggi).length, 0)
+  const alMese = perEsecuzione * ESECUZIONI_MESE
+  const livello = alMese > LIMITE_MESE ? 'errore' : alMese > SOGLIA_AVVISO ? 'avviso' : 'ok'
+  return { perEsecuzione, alMese, livello }
+}
+
+/**
+ * Parametri SerpApi per una fonte e una tappa.
+ * Airbnb filtra lato API (casa intera, camere e bagni minimi).
+ * Booking non ha filtri su camere e bagni: si chiede un'unica unità per tutti
+ * (rooms=1) tra appartamenti e case vacanza (201, 220) e si filtra dopo.
+ */
+export function parametri(fonte, alloggi, tappa, extra = {}) {
+  const comuni = { q: tappa.q, check_in_date: tappa.dal, check_out_date: tappa.al, adults: String(alloggi.adulti), currency: VALUTA }
+  let p
+  if (fonte === 'airbnb') {
+    p = new URLSearchParams({
+      engine: 'airbnb', ...comuni, bedrooms: String(alloggi.camere), bathrooms: String(alloggi.bagni), room_type: 'entire_home',
+    })
+  } else if (fonte === 'booking') {
+    p = new URLSearchParams({ engine: 'booking', ...comuni, rooms: '1', property_types: '201,220' })
+  } else {
+    throw new ErroreFatale('fonte sconosciuta: ' + fonte)
+  }
+  for (const [k, v] of Object.entries(extra)) if (v != null) p.set(k, String(v))
+  return p
+}
+
+const risultati = (json) => (Array.isArray(json?.organic_results) ? json.organic_results : Array.isArray(json?.properties) ? json.properties : [])
+const https = (u) => (typeof u === 'string' && /^https:\/\//i.test(u) ? u : '')
+// Somma su rooms[], pesata per `quantity` (Booking può proporre più unità uguali).
+const somma = (arr, k) => {
+  const v = arr.filter((x) => num(x?.[k]) != null).map((x) => x[k] * (num(x.quantity) ?? 1))
+  return v.length ? v.reduce((a, b) => a + b, 0) : null
+}
+// Valuta solo se è un codice ISO a tre lettere, altrimenti quella chiesta.
+const valuta = (c) => (typeof c === 'string' && /^[A-Z]{3}$/.test(c) ? c : VALUTA)
+/** true se il prezzo Airbnb è a notte ("per night", "/ night") e non per il soggiorno. */
+export const aNotte = (q) => typeof q === 'string' && /\bnight\b/i.test(q) && !/for \d+ nights/i.test(q) && !/total/i.test(q)
+
+/**
+ * Strutture normalizzate e filtrate (case con almeno `camere` camere e `bagni` bagni).
+ * Airbnb: se camere/bagni mancano si tiene (il filtro è già lato API), se sono sotto si scarta.
+ * Booking: camere e bagni dalla somma di rooms[]; se mancano si scarta.
+ */
+export function strutture(fonte, json, { notti, camere, bagni }) {
+  const out = []
+  for (const o of risultati(json)) {
+    let totale = num(o?.extracted_price)
+    if (totale == null) continue
+    let s
+    if (fonte === 'airbnb') {
+      if (aNotte(o.price_qualifier)) {
+        if (!notti) continue
+        totale = r2(totale * notti)
+      }
+      s = {
+        nome: o.name || o.title || '',
+        tipo: o.title || '',
+        totale,
+        a_notte: notti ? r2(totale / notti) : '',
+        tasse: '',
+        valuta: VALUTA,
+        camere: num(o.bedrooms),
+        bagni: num(o.bathrooms),
+        letti: num(o.beds),
+        ospiti: '',
+        valutazione: num(o.rating),
+        scala: 5,
+        recensioni: num(o.reviews),
+        info: [o.price_qualifier, o.description].filter(Boolean).join(' · '),
+        link: https(o.link),
+        id: o.listing_id ?? '',
+      }
+      if ((s.camere != null && s.camere < camere) || (s.bagni != null && s.bagni < bagni)) continue
+    } else {
+      const rooms = Array.isArray(o.rooms) ? o.rooms : []
+      s = {
+        nome: o.name || '',
+        tipo: rooms[0]?.type || o.type || '',
+        totale,
+        a_notte: num(o.extracted_price_per_night) ?? (notti ? r2(totale / notti) : ''),
+        tasse: num(o.extracted_taxes_and_fees),
+        valuta: valuta(o.currency),
+        camere: somma(rooms, 'bedrooms'),
+        bagni: somma(rooms, 'bathrooms'),
+        letti: somma(rooms, 'beds'),
+        ospiti: '',
+        valutazione: num(o.rating),
+        scala: 10,
+        recensioni: num(o.reviews),
+        info: [o.rating_text, o.availability].filter(Boolean).join(' · '),
+        link: https(o.link),
+        id: o.property_id ?? '',
+      }
+      if (s.camere == null || s.bagni == null || s.camere < camere || s.bagni < bagni) continue
+    }
+    out.push(s)
+  }
+  return out.map((s, i) => ({ ...s, rango: i + 1 }))
+}
+
+/** Righe CSV per le strutture di una ricerca. */
+export function righe({ run, fonte, tappa, alloggi, strutture: lista }) {
+  const n = nottiTra(tappa.dal, tappa.al)
+  return lista.map((s) => [
+    run, fonte, tappa.id, tappa.nome, tappa.dal, tappa.al, n, alloggi.adulti, alloggi.camere, alloggi.bagni,
+    s.rango, s.nome, s.tipo, s.totale, s.a_notte, s.tasse, s.valuta, s.camere, s.bagni, s.letti, s.ospiti,
+    s.valutazione, s.scala, s.recensioni, s.info, s.link, s.id,
+  ])
+}
+
+/** Ricerca SerpApi per gli alloggi ("vuota" = errore senza risultati). */
+export function cerca(params, opts = {}) {
+  return cercaSerpApi(params, { ...opts, conta: (json) => risultati(json).length })
+}
+
+/** fetch finto: airbnb.json o booking.json secondo l'engine; scenari vuoto/chiave. */
+export function fetchFixture(dir, scenario = '') {
+  const leggi = (nome) => JSON.parse(readFileSync(path.join(dir, nome + '.json'), 'utf8'))
+  return async (url) => {
+    let nome = new URL(url).searchParams.get('engine')
+    let status = 200
+    if (scenario === 'vuoto') nome = 'vuoto'
+    if (scenario === 'chiave') {
+      nome = 'chiave'
+      status = 401
+    }
+    const corpo = leggi(nome)
+    return { ok: status < 400, status, json: async () => corpo }
+  }
+}
+
+export function scriviCsv(file, rows) {
+  scriviCsvComune(file, HEADER, rows)
+}
+
+function controllaBudget(trips, oggi, log) {
+  const b = stimaBudget(trips, oggi)
+  const msg =
+    'Budget SerpApi alloggi: ' + b.perEsecuzione + ' ricerche per esecuzione, circa ' + b.alMese +
+    ' al mese (' + ESECUZIONI_MESE + ' esecuzioni, limite ' + LIMITE_MESE + ')'
+  if (b.livello === 'errore') log.error(msg + ': troppe, riduci tappe, fonti o viaggi attivi')
+  else if (b.livello === 'avviso') log.warn(msg + ': vicino al limite')
+  else log.info(msg)
+  return b
+}
+
+async function cercaViaggio(v, run, { apiKey, fetchImpl, ritardoRetry, log }) {
+  const al = v.alloggi
+  const lista = tappe(al, run.slice(0, 10))
+  const fonti = fontiDi(al)
+  const rows = []
+  let fallite = 0
+  let trovate = 0
+  for (const t of lista) {
+    let perTappa = 0
+    for (const fonte of fonti) {
+      const r = await cerca(parametri(fonte, al, t, { api_key: apiKey }), { fetchImpl, ritardoRetry })
+      if (r.stato === 'fallito') {
+        fallite++
+        log.warn(v.slug + ' ' + t.id + ' ' + fonte + ': ricerca fallita (' + r.motivo + ')')
+        continue
+      }
+      if (r.stato === 'vuoto') log.warn(v.slug + ' ' + t.id + ' ' + fonte + ': nessun risultato (' + r.motivo + ')')
+      const s = strutture(fonte, r.json, { notti: nottiTra(t.dal, t.al), camere: al.camere, bagni: al.bagni })
+      const grezzi = risultati(r.json).length
+      log.info(v.slug + ' ' + t.id + ' ' + fonte + ': ' + s.length + ' case adatte su ' + grezzi)
+      if (grezzi > 0 && s.length === 0) {
+        log.warn(v.slug + ' ' + t.id + ' ' + fonte + ': ' + grezzi + ' risultati ma nessuno con ' + al.camere + ' camere e ' + al.bagni + ' bagni (o senza dati): tutti scartati')
+      }
+      perTappa += s.length
+      rows.push(...righe({ run, fonte, tappa: t, alloggi: al, strutture: s }))
+    }
+    if (!perTappa) log.warn(v.slug + ' ' + t.id + ': nessuna casa con ' + al.camere + ' camere e ' + al.bagni + ' bagni')
+    trovate += perTappa
+  }
+  const ricerche = lista.length * fonti.length
+  if (fallite > ricerche / 2 || trovate === 0) {
+    return { errore: v.slug + ': ' + fallite + ' ricerche fallite su ' + ricerche + ', ' + trovate + ' case: non aggiorno il CSV' }
+  }
+  return { rows }
+}
+
+/** Esecuzione completa. Ritorna il codice di uscita (0 ok, 1 errore). */
+export async function esegui({
+  viaggi = VIAGGI,
+  now,
+  apiKey,
+  fetchImpl = fetch,
+  outDir = path.join(RADICE, 'public'),
+  slug = '',
+  dryRun = false,
+  ritardoRetry = RITARDO_RETRY_MS,
+  log = logConsole,
+} = {}) {
+  try {
+    const run = adesso(now, 'ALLOGGI_NOW')
+    const oggi = run.slice(0, 10)
+    for (const v of viaggi) {
+      if (v.alloggi?.attivo === true && !tappe(v.alloggi, oggi).length) log.info(v.slug + ': tappe già passate, salto')
+    }
+    let trips = attivi(viaggi, oggi)
+    if (slug) trips = trips.filter((v) => v.slug === slug)
+    if (!trips.length) {
+      log.info('Nessun viaggio con alloggi attivi' + (slug ? ' con slug ' + slug : '') + ': niente da cercare.')
+      return slug ? 1 : 0
+    }
+
+    if (dryRun) {
+      for (const v of trips) {
+        const al = v.alloggi
+        const lista = tappe(al, oggi)
+        log.info(
+          v.slug + ': ' + al.adulti + ' adulti, almeno ' + al.camere + ' camere e ' + al.bagni + ' bagni, ' + lista.length +
+            ' tappe × ' + fontiDi(al).length + ' fonti (' + fontiDi(al).join(', ') + ') = ' + lista.length * fontiDi(al).length + ' ricerche',
+        )
+        for (const t of lista) log.info('  ' + t.id + ': ' + t.q + ', ' + t.dal + ' → ' + t.al + ' (' + nottiTra(t.dal, t.al) + ' notti)')
+      }
+      return controllaBudget(trips, oggi, log).livello === 'errore' ? 1 : 0
+    }
+
+    if (!apiKey) throw new ErroreFatale('SERPAPI_KEY_ALLOGGI mancante')
+    if (controllaBudget(trips, oggi, log).livello === 'errore') return 1
+
+    let codice = 0
+    for (const v of trips) {
+      const esito = await cercaViaggio(v, run, { apiKey, fetchImpl, ritardoRetry, log })
+      if (esito.errore) {
+        log.error(esito.errore)
+        codice = 1
+        continue
+      }
+      const file = path.join(outDir, v.slug, 'alloggi.csv')
+      try {
+        scriviCsv(file, esito.rows)
+        log.info(v.slug + ': ' + esito.rows.length + ' righe aggiunte a ' + path.relative(process.cwd(), file))
+      } catch (e) {
+        log.error(e.message)
+        codice = 1
+      }
+    }
+    return codice
+  } catch (e) {
+    if (e instanceof ErroreFatale) {
+      log.error(e.message)
+      return 1
+    }
+    throw e
+  }
+}
+
+function argomenti(argv) {
+  const a = { dryRun: false, slug: '', fixture: '', scenario: '', out: '' }
+  for (let i = 0; i < argv.length; i++) {
+    const k = argv[i]
+    if (k === '--dry-run') a.dryRun = true
+    else if (k === '--slug') a.slug = argv[++i] ?? ''
+    else if (k === '--fixture') a.fixture = argv[++i] ?? ''
+    else if (k === '--fixture-scenario') a.scenario = argv[++i] ?? ''
+    else if (k === '--out') a.out = argv[++i] ?? ''
+    else if (k === '') continue
+    else throw new ErroreFatale('argomento sconosciuto: ' + k)
+  }
+  return a
+}
+
+async function main() {
+  let a
+  try {
+    a = argomenti(process.argv.slice(2))
+  } catch (e) {
+    logConsole.error(e.message)
+    process.exit(1)
+  }
+  const opts = { now: process.env.ALLOGGI_NOW || undefined, slug: a.slug, dryRun: a.dryRun }
+  if (a.out) opts.outDir = path.resolve(a.out)
+  if (a.fixture) {
+    opts.fetchImpl = fetchFixture(path.resolve(a.fixture), a.scenario)
+    opts.apiKey = 'fixture'
+    opts.ritardoRetry = 0
+  } else {
+    opts.apiKey = process.env.SERPAPI_KEY_ALLOGGI
+  }
+  process.exitCode = await esegui(opts)
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main()
+}

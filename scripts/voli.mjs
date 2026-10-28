@@ -2,6 +2,8 @@
 // Storico prezzi voli: per ogni viaggio di src/viaggi.js con `voli.attivo`
 // cerca su Google Flights (via SerpApi) tutte le coppie di date andata × ritorno
 // e aggiunge le opzioni trovate a public/<slug>/voli.csv.
+// Per ogni aeroporto di partenza prende l'andata più economica e chiede i
+// ritorni di quell'itinerario (departure_token): è il prezzo vero, andata e ritorno.
 //
 //   node scripts/voli.mjs                 esecuzione reale (serve SERPAPI_KEY)
 //   node scripts/voli.mjs --dry-run       piano e budget, senza chiamate
@@ -13,12 +15,21 @@
 // Variabili: SERPAPI_KEY, VOLI_NOW (data ISO per esecuzioni ripetibili).
 // Nessuna dipendenza: Node 20+ con fetch nativo.
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { viaggi as VIAGGI } from '../src/viaggi.js'
+import {
+  ErroreFatale,
+  RITARDO_RETRY_MS,
+  adesso,
+  cerca as cercaSerpApi,
+  logConsole,
+  scriviCsv as scriviCsvComune,
+} from './serpapi.mjs'
 
-export const ENDPOINT = 'https://serpapi.com/search.json'
+export { ENDPOINT, ErroreFatale, TIMEOUT_MS, RITARDO_RETRY_MS, csvRiga } from './serpapi.mjs'
+
 export const VALUTA = 'EUR'
 export const HL = 'it'
 export const GL = 'it'
@@ -29,18 +40,16 @@ export const SOGLIA_AVVISO = 200
 // 'totale' = il prezzo restituito vale per tutti gli adulti; 'persona' = già a persona.
 // Si verifica con --calibra.
 export const PREZZO_BASE = 'totale'
-export const TIMEOUT_MS = 60000
-export const RITARDO_RETRY_MS = 5000
 
-export const HEADER = [
+export const HEADER_V1 = [
   'run', 'tipo', 'data_andata', 'data_ritorno', 'sezione', 'rango', 'prezzo', 'valuta', 'adulti', 'base',
   'prezzo_persona', 'compagnie', 'scali', 'aeroporti_scalo', 'durata_min', 'da', 'a', 'partenza', 'arrivo',
   'voli', 'migliore',
 ]
+// v2: colonna `gruppo` = itinerario verificato (andata + ritorni dello stesso follow-up).
+export const HEADER = [...HEADER_V1, 'gruppo']
 
 const RADICE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-
-export class ErroreFatale extends Error {}
 
 /** Viaggi con voli.attivo === true e almeno una data di andata da oggi in poi. */
 export function attivi(viaggi, oggi) {
@@ -62,9 +71,9 @@ export function coppie(voli, oggi = '') {
   return out
 }
 
-/** Ricerche per esecuzione (una per coppia + una per il ritorno) e stima mensile. */
+/** Ricerche per esecuzione (una per coppia + una per aeroporto di partenza) e stima mensile. */
 export function stimaBudget(trips, oggi = '') {
-  const perEsecuzione = trips.reduce((n, v) => n + coppie(v.voli, oggi).length + 1, 0)
+  const perEsecuzione = trips.reduce((n, v) => n + coppie(v.voli, oggi).length + v.voli.andata.da.length, 0)
   const alMese = perEsecuzione * ESECUZIONI_MESE
   const livello = alMese > LIMITE_MESE ? 'errore' : alMese > SOGLIA_AVVISO ? 'avviso' : 'ok'
   return { perEsecuzione, alMese, livello }
@@ -124,23 +133,19 @@ export function opzioni(json) {
 export const prezzoPersona = (prezzo, adulti, base) =>
   base === 'totale' ? Math.round((prezzo / adulti) * 100) / 100 : prezzo
 
-/** Righe CSV (array) per un gruppo di opzioni della stessa ricerca. */
-export function righe({ run, tipo, coppia, adulti, base = PREZZO_BASE, valuta = VALUTA, opts, migliore = null }) {
-  return opts.map((o) => [
-    run, tipo, coppia.andata, coppia.ritorno, o.sezione, o.rango, o.prezzo, valuta, adulti, base,
-    prezzoPersona(o.prezzo, adulti, base), o.compagnie, o.scali, o.aeroporti_scalo, o.durata_min,
-    o.da, o.a, o.partenza, o.arrivo, o.voli, o === migliore ? 1 : '',
-  ])
-}
-
-/** Una riga CSV, con le virgolette solo dove servono (RFC 4180). */
-export function csvRiga(arr) {
-  return arr
-    .map((v) => {
-      const s = v == null ? '' : String(v)
-      return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
-    })
-    .join(',')
+/**
+ * Righe CSV (array) per un gruppo di opzioni della stessa ricerca.
+ * `segna(o)` → { migliore: bool, gruppo: n | '' } per ogni opzione.
+ */
+export function righe({ run, tipo, coppia, adulti, base = PREZZO_BASE, valuta = VALUTA, opts, segna = () => ({}) }) {
+  return opts.map((o) => {
+    const s = segna(o) || {}
+    return [
+      run, tipo, coppia.andata, coppia.ritorno, o.sezione, o.rango, o.prezzo, valuta, adulti, base,
+      prezzoPersona(o.prezzo, adulti, base), o.compagnie, o.scali, o.aeroporti_scalo, o.durata_min,
+      o.da, o.a, o.partenza, o.arrivo, o.voli, s.migliore ? 1 : '', s.gruppo ?? '',
+    ]
+  })
 }
 
 /** Ordine: prezzo, poi meno scali, poi durata minore. */
@@ -149,60 +154,22 @@ export function piuEconomica(opts) {
   return [...opts].sort((a, b) => a.prezzo - b.prezzo || a.scali - b.scali || n(a.durata_min) - n(b.durata_min))[0] ?? null
 }
 
-const dorme = (ms) => new Promise((r) => setTimeout(r, ms))
-
-function oscurata(params) {
-  const p = new URLSearchParams(params)
-  if (p.has('api_key')) p.set('api_key', '***')
-  return p.toString()
+/** Ricerca SerpApi per i voli ("vuota" = errore senza opzioni). */
+export function cerca(params, opts = {}) {
+  return cercaSerpApi(params, { ...opts, conta: (json) => opzioni(json).length })
 }
 
 /**
- * Una ricerca SerpApi.
- * Ritorna { stato: 'ok' | 'vuoto' | 'fallito', json?, motivo? }; lancia ErroreFatale
- * per chiave non valida, limite superato o richiesta sbagliata.
+ * fetch finto che risponde con i file JSON di una cartella di fixture:
+ * andata.json, oppure per i follow-up ritorno-<token>.json se esiste, altrimenti ritorno.json.
  */
-export async function cerca(params, { fetchImpl = fetch, ritardoRetry = RITARDO_RETRY_MS } = {}) {
-  let motivo = ''
-  for (let tentativo = 0; tentativo < 2; tentativo++) {
-    if (tentativo) await dorme(ritardoRetry)
-    let res
-    let json = null
-    try {
-      res = await fetchImpl(ENDPOINT + '?' + params.toString(), { signal: AbortSignal.timeout(TIMEOUT_MS) })
-      try {
-        json = await res.json()
-      } catch {
-        json = null
-      }
-    } catch (e) {
-      motivo = 'errore di rete: ' + (e?.message || e)
-      continue
-    }
-    const errore = typeof json?.error === 'string' ? json.error : ''
-    if (res.status === 401 || res.status === 403 || /api key/i.test(errore)) {
-      throw new ErroreFatale('chiave SerpApi non valida o non autorizzata (HTTP ' + res.status + ')')
-    }
-    if (res.status === 429) throw new ErroreFatale('limite di ricerche SerpApi superato (HTTP 429): ' + errore)
-    if (res.status === 400) {
-      throw new ErroreFatale('richiesta rifiutata (HTTP 400): ' + errore + ' — parametri: ' + oscurata(params))
-    }
-    if (res.status >= 500 || !res.ok || json == null || json?.search_metadata?.status === 'Error') {
-      motivo = 'HTTP ' + res.status + (errore ? ': ' + errore : '')
-      continue
-    }
-    if (errore && opzioni(json).length === 0) return { stato: 'vuoto', json, motivo: errore }
-    return { stato: 'ok', json }
-  }
-  return { stato: 'fallito', motivo }
-}
-
-/** fetch finto che risponde con i file JSON di una cartella di fixture. */
 export function fetchFixture(dir, scenario = '') {
   const leggi = (nome) => JSON.parse(readFileSync(path.join(dir, nome + '.json'), 'utf8'))
   return async (url) => {
     const p = new URL(url).searchParams
-    let nome = p.has('departure_token') ? 'ritorno' : 'andata'
+    const token = p.get('departure_token')
+    let nome = 'andata'
+    if (token) nome = existsSync(path.join(dir, 'ritorno-' + token + '.json')) ? 'ritorno-' + token : 'ritorno'
     let status = 200
     if (scenario === 'vuoto') nome = 'vuoto'
     if (scenario === 'chiave') {
@@ -214,36 +181,9 @@ export function fetchFixture(dir, scenario = '') {
   }
 }
 
-const logConsole = {
-  info: (m) => console.log(m),
-  warn: (m) => console.log('::warning::' + m),
-  error: (m) => console.log('::error::' + m),
-}
-
-/** Accoda le righe al CSV del viaggio senza mai lasciarlo a metà. */
+/** Accoda al CSV dei voli (migra da HEADER_V1 se serve). */
 export function scriviCsv(file, rows) {
-  const intestazione = HEADER.join(',')
-  let prima = ''
-  if (existsSync(file)) prima = readFileSync(file, 'utf8')
-  if (prima !== '') {
-    const riga1 = prima.split(/\r?\n/, 1)[0]
-    if (riga1 !== intestazione) {
-      throw new Error(file + ': intestazione diversa da quella attesa, non scrivo nulla')
-    }
-    if (prima && !prima.endsWith('\n')) prima += '\n'
-  } else {
-    prima = intestazione + '\n'
-  }
-  mkdirSync(path.dirname(file), { recursive: true })
-  const tmp = file + '.tmp'
-  writeFileSync(tmp, prima + rows.map(csvRiga).join('\n') + '\n')
-  renameSync(tmp, file)
-}
-
-function adesso(now) {
-  const d = now ? new Date(now) : new Date()
-  if (Number.isNaN(d.getTime())) throw new ErroreFatale('VOLI_NOW non è una data valida: ' + now)
-  return d.toISOString().replace(/\.\d{3}Z$/, 'Z')
+  scriviCsvComune(file, HEADER, rows, [HEADER_V1])
 }
 
 function selezione(viaggi, oggi, slug, log) {
@@ -290,34 +230,56 @@ async function cercaViaggio(v, run, { apiKey, fetchImpl, ritardoRetry, log }) {
     return { errore: v.slug + ': ' + fallite + ' ricerche fallite su ' + lista.length + ', ' + totale + ' opzioni: non aggiorno il CSV' }
   }
 
-  // Dettagli del ritorno per l'opzione più economica dell'intera esecuzione.
+  // Un follow-up per aeroporto di partenza: l'andata più economica (con token) da lì,
+  // tra tutte le coppie di date, e i ritorni di quell'itinerario.
   const conToken = trovate.flatMap((t) => t.opts.filter((o) => o.token).map((o) => ({ ...o, coppia: t.coppia, orig: o })))
-  const scelta = piuEconomica(conToken)
-  let ritorno = null
-  if (scelta) {
+  const gruppoDi = new Map()
+  const ritorni = []
+  let n = 0
+  for (const da of v.voli.andata.da) {
+    const scelta = piuEconomica(conToken.filter((o) => o.da === da))
+    if (!scelta) {
+      log.warn(v.slug + ' ' + da + ': nessuna andata con departure_token, salto il ritorno')
+      continue
+    }
+    let opts = []
+    let motivo = ''
     try {
       const r = await cerca(parametri(v.voli, scelta.coppia, { api_key: apiKey, departure_token: scelta.token }), {
         fetchImpl,
         ritardoRetry,
       })
-      const opts = r.stato === 'fallito' ? [] : opzioni(r.json)
-      if (opts.length) ritorno = { coppia: scelta.coppia, opts }
-      else log.warn(v.slug + ': dettagli del ritorno non disponibili (' + (r.motivo || 'nessuna opzione') + ')')
+      opts = r.stato === 'fallito' ? [] : opzioni(r.json)
+      motivo = r.motivo || 'nessuna opzione'
     } catch (e) {
       if (!(e instanceof ErroreFatale)) throw e
-      log.warn(v.slug + ': dettagli del ritorno non disponibili (' + e.message + ')')
+      motivo = e.message
     }
-  } else {
-    log.warn(v.slug + ': nessuna opzione con departure_token, salto i dettagli del ritorno')
+    if (!opts.length) {
+      log.warn(v.slug + ' ' + da + ': dettagli del ritorno non disponibili (' + motivo + ')')
+      continue
+    }
+    n++
+    gruppoDi.set(scelta.orig, n)
+    // Aeroporti misti esclusi: il migliore è il ritorno più economico verso lo stesso aeroporto.
+    const migliore = piuEconomica(opts.filter((o) => o.a === da))
+    if (!migliore) log.warn(v.slug + ' ' + da + ': nessun ritorno verso ' + da + ' in questa rilevazione')
+    ritorni.push({ coppia: scelta.coppia, opts, gruppo: n, migliore })
   }
 
   const adulti = v.voli.adulti
   const rows = trovate.flatMap((t) =>
-    righe({ run, tipo: 'andata', coppia: t.coppia, adulti, opts: t.opts, migliore: scelta?.orig }),
+    righe({
+      run, tipo: 'andata', coppia: t.coppia, adulti, opts: t.opts,
+      segna: (o) => (gruppoDi.has(o) ? { migliore: true, gruppo: gruppoDi.get(o) } : {}),
+    }),
   )
-  if (ritorno) {
+  for (const r of ritorni) {
     rows.push(
-      ...righe({ run, tipo: 'ritorno', coppia: ritorno.coppia, adulti, opts: ritorno.opts, migliore: piuEconomica(ritorno.opts) }),
+      ...righe({
+        run, tipo: 'ritorno', coppia: r.coppia, adulti, opts: r.opts,
+        segna: (o) => ({ migliore: o === r.migliore, gruppo: r.gruppo }),
+      }),
     )
   }
   return { rows }
@@ -340,7 +302,7 @@ export async function esegui({
   log = logConsole,
 } = {}) {
   try {
-    const run = adesso(now)
+    const run = adesso(now, 'VOLI_NOW')
     const oggi = run.slice(0, 10)
     const trips = selezione(viaggi, oggi, slug, log)
     if (!trips.length) {
@@ -351,10 +313,11 @@ export async function esegui({
     if (dryRun) {
       for (const v of trips) {
         const lista = coppie(v.voli, oggi)
+        const k = v.voli.andata.da.length
         log.info(
           v.slug + ': ' + v.voli.adulti + ' adulti, ' + v.voli.andata.da.join(',') + ' → ' + v.voli.andata.a.join(',') +
             ' / ' + v.voli.ritorno.da.join(',') + ' → ' + v.voli.ritorno.a.join(',') + ', ' + lista.length +
-            ' coppie di date + 1 ricerca per il ritorno = ' + (lista.length + 1) + ' ricerche',
+            ' coppie di date + ' + k + ' ricerche per i ritorni (una per aeroporto) = ' + (lista.length + k) + ' ricerche',
         )
         for (const c of lista) log.info('  ' + c.andata + ' → ' + c.ritorno)
       }
@@ -455,3 +418,4 @@ async function main() {
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   main()
 }
+

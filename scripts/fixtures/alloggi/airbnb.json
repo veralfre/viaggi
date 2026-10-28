@@ -1,0 +1,86 @@
+{
+  "search_metadata": { "id": "fixture-airbnb", "status": "Success" },
+  "search_parameters": { "engine": "airbnb", "q": "Jackson, WY", "check_in_date": "2027-07-21", "check_out_date": "2027-07-24", "adults": 6, "bedrooms": 3, "bathrooms": 2, "room_type": "entire_home", "currency": "EUR" },
+  "organic_results": [
+    {
+      "position": 1,
+      "listing_id": "51234567890123456",
+      "title": "Home in Jackson",
+      "name": "Cabin with Teton views, hot tub",
+      "description": "Log cabin near the town square, with a hot tub and a deck",
+      "link": "https://www.airbnb.com/rooms/51234567890123456?check_in=2027-07-21&check_out=2027-07-24&adults=6",
+      "rating": 4.92,
+      "reviews": 87,
+      "is_new_listing": false,
+      "badges": ["Guest favorite"],
+      "price": "€2,340",
+      "extracted_price": 2340,
+      "price_qualifier": "for 3 nights",
+      "price_breakdown": [
+        { "description": "3 nights x €690", "price": "€2,070", "extracted_price": 2070 },
+        { "description": "Cleaning fee", "price": "€270", "extracted_price": 270 }
+      ],
+      "check_in_date": "2027-07-21",
+      "check_out_date": "2027-07-24",
+      "details": ["3 bedrooms", "5 beds", "2 baths"],
+      "bedrooms": 3,
+      "beds": 5,
+      "bathrooms": 2,
+      "free_cancellation": true,
+      "gps_coordinates": { "latitude": 43.48, "longitude": -110.76 }
+    },
+    {
+      "position": 2,
+      "listing_id": "61234567890123456",
+      "title": "Townhouse in Jackson",
+      "name": "Downtown townhouse, walk to the square",
+      "link": "https://www.airbnb.com/rooms/61234567890123456?check_in=2027-07-21&check_out=2027-07-24&adults=6",
+      "rating": 4.71,
+      "reviews": 152,
+      "price": "€2,055",
+      "extracted_price": 2055,
+      "price_qualifier": "for 3 nights",
+      "details": ["4 bedrooms", "6 beds", "2.5 baths"],
+      "bedrooms": 4,
+      "beds": 6,
+      "bathrooms": 2.5
+    },
+    {
+      "position": 3,
+      "listing_id": "71234567890123456",
+      "title": "Home in Jackson",
+      "name": "New listing near Snake River",
+      "link": "https://www.airbnb.com/rooms/71234567890123456",
+      "is_new_listing": true,
+      "price": "€2,610",
+      "extracted_price": 2610,
+      "price_qualifier": "total",
+      "details": ["3 bedrooms", "4 beds", "2 baths"]
+    },
+    {
+      "position": 4,
+      "listing_id": "81234567890123456",
+      "title": "Condo in Jackson",
+      "name": "Small condo (filter mismatch)",
+      "link": "https://www.airbnb.com/rooms/81234567890123456",
+      "rating": 4.5,
+      "reviews": 10,
+      "price": "€990",
+      "extracted_price": 990,
+      "price_qualifier": "for 3 nights",
+      "bedrooms": 2,
+      "beds": 3,
+      "bathrooms": 1
+    },
+    {
+      "position": 5,
+      "listing_id": "91234567890123456",
+      "title": "Home in Jackson",
+      "name": "Sold out, no price",
+      "link": "https://www.airbnb.com/rooms/91234567890123456",
+      "bedrooms": 3,
+      "bathrooms": 2
+    }
+  ],
+  "serpapi_pagination": { "current": 1, "next": "https://serpapi.com/search.json?engine=airbnb&page=2" }
+}
