@@ -87,6 +87,10 @@ lo stile. Blocchi del primo `<script>`:
   `costi.carburante.km`.
 - **`DAYS`**: `{wd, reg, t, path, stops, night, km, notte, txt, clou, tip, ab, foto, film}`;
   `dateOf = i => new Date(anno, mese-1, giornoIniziale+i)`; `wd` coerenti con le date.
+  **`film` è obbligatorio in ogni giorno**: il «Capitolo del filmino» per il vlog di fine
+  viaggio, `{t: titolo da capitolo con ironia leggera, txt: cosa racconta, shots: [3–4 riprese
+  da non perdere con l'attrezzatura vera]}`, mostrato da `filmHTML(d)`. Anche se la pagina
+  aggiunge campi nuovi ai giorni, non va tolto.
 - **`PROG`**: per giorno una lista di voci `[slot, titolo, testo, abbigliamento, foto, opzioni]`,
   con `opzioni = { tk: [id dei sentieri], pigra: "alternativa pigra" }` (facoltativo).
 - **`TREK`**: sentieri `{nome, tipo, km, su, giu, quotaMin, quotaMax, pts, tappe}`. Come
@@ -134,6 +138,8 @@ giorno nel programma).
   `VOLI_NOW=<oggi>T05:17:00Z node scripts/voli.mjs --fixture scripts/fixtures/voli --out dist`
   e lo stesso con `alloggi.mjs`, poi `npx vite preview`. Con le fixture tutti i voli
   risultano verso DEN: le tratte con altri aeroporti mostrano «da rilevare», è normale.
+- Prima della revisione, confronta i campi dei giorni con quelli dell'ultima pagina: ogni
+  giorno ha il suo capitolo del filmino (`grep -c "film:"` = numero dei giorni).
 - Screenshot headless con Chrome di sistema (`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`,
   playwright con `executablePath`) a 1300 e 390 px: hero, ogni `#giorno-N`, zoom di ogni
   sentiero (etichette che non escono dal bordo e non si sovrappongono), calendario, conto,
