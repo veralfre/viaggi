@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { datiPlaylist } from '../src/costi.js'
 import { GENERI, playlist } from '../src/playlist.js'
-import { REDIRECT, aPezzi, brani, challengeDa, esitoCallback, normalizza, pkce, query, scegli, urlAutorizzazione } from './spotify.mjs'
+import { REDIRECT, aPezzi, brani, challengeDa, esitoCallback, normalizza, pkce, playlistDi, query, scegli, urlAutorizzazione } from './spotify.mjs'
 
 const QUI = path.dirname(fileURLToPath(import.meta.url))
 const ovest = playlist['ovest-2027']
@@ -102,6 +102,29 @@ test('datiPlaylist: ID accettato solo se valido', () => {
   assert.equal(datiPlaylist(ovest, '"><script>').spotify, null)
   assert.equal(datiPlaylist(null, 'x'), null)
   assert.deepEqual(datiPlaylist(ovest, '').blocchi[0].brani[0], { artista: 'John Denver', titolo: 'Rocky Mountain High', genere: 'classici' })
+})
+
+test('versione breve: sottoinsieme dei blocchi del lungo, giorni del suo programma, stessa playlist Spotify', () => {
+  const breve = playlist['ovest-2027-short']
+  assert.equal(Object.keys(playlist)[0], 'ovest-2027')
+  assert.deepEqual(breve.blocchi.map((b) => [b.id, b.giorno]), [['yellowstone', 4], ['beartooth', 8], ['paradise-valley', 9]])
+  for (const b of breve.blocchi) {
+    assert.ok(b.giorno >= 1 && b.giorno <= 10)
+    assert.deepEqual(b.brani, ovest.blocchi.find((x) => x.id === b.id).brani)
+    for (const [a, t, g] of b.brani) assert.ok(a && t && GENERI[g], a + ' ' + t + ' ' + g)
+  }
+  const chiavi = brani(breve).map((b) => normalizza(b.artista + ' ' + b.titolo))
+  assert.equal(new Set(chiavi).size, chiavi.length)
+  assert.match(breve.descrizione, /viaggio lungo/)
+  assert.equal(playlistDi('ovest-2027-short'), 'ovest-2027')
+  assert.equal(playlistDi('ovest-2027'), null)
+  assert.equal(playlistDi('x', [{ slug: 'x', playlistDi: 'x' }]), null)
+  const r = spawnSync(process.execPath, [path.join(QUI, 'spotify.mjs'), '--dry-run', '--slug', 'ovest-2027-short'], { encoding: 'utf8', env: { ...process.env, SPOTIFY_CLIENT_ID: '' } })
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stdout, /Usa la playlist di ovest-2027/)
+  const e = spawnSync(process.execPath, [path.join(QUI, 'spotify.mjs'), '--slug', 'ovest-2027-short'], { encoding: 'utf8', env: { ...process.env, SPOTIFY_CLIENT_ID: 'finto' } })
+  assert.equal(e.status, 1)
+  assert.match(e.stderr, /rilancia con --slug ovest-2027/)
 })
 
 test('CLI --dry-run senza rete', () => {

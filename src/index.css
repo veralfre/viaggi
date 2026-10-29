@@ -100,3 +100,10 @@ h1 {
   color: var(--testo-tenue);
   font-size: 0.95rem;
 }
+
+.scheda .nota {
+  margin-top: 0.4rem;
+  color: var(--testo-tenue);
+  font-size: 0.85rem;
+  font-style: italic;
+}

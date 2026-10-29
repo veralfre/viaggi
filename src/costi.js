@@ -33,6 +33,18 @@ export function carburante(c, km = c?.km) {
   return { km, litri: Math.round(litri), importo: r2(litri * c.euroLitro) }
 }
 
+/**
+ * Voli di sola andata di chi ospita, come lista di tratte { id, voce, adulti, da, a, date }:
+ * `voli.ospiti` (le tratte con `attivo: false` si scartano) oppure la vecchia forma
+ * `voli.rientroOspiti` (una tratta, solo con `attivo: true`). [] se non ce ne sono.
+ */
+export function voliOspiti(voli) {
+  const tratta = (t, id, voce) => ({ id: t.id ?? id, voce: t.voce ?? voce, adulti: t.adulti, da: t.da, a: t.a, date: t.date })
+  if (Array.isArray(voli?.ospiti)) return voli.ospiti.filter((t) => t.attivo !== false).map((t, i) => tratta(t, 'ospiti-' + (i + 1), 'Volo di chi ospita'))
+  const r = voli?.rientroOspiti
+  return r?.attivo === true ? [tratta(r, 'rientro', 'Volo di rientro')] : []
+}
+
 const ID_SPOTIFY = /^[A-Za-z0-9]{22}$/
 
 /** Scaletta per la pagina: blocchi con brani { artista, titolo, genere } e ID Spotify se valido. */
@@ -62,13 +74,17 @@ export function datiPagina(v, extra = {}) {
   const al = v.alloggi
   const n = v.costi?.noleggio
   const carb = v.costi?.carburante
-  const voci = (n && typeof n.importo === 'number' ? [n] : []).concat(v.costi?.extra ?? [])
+  // Il noleggio entra tra gli extra anche senza importo («da definire», fuori dalla somma).
+  const voci = (n ? [n] : []).concat(v.costi?.extra ?? [])
+  const noleggio = (x) => (x ? { voce: x.voce, importo: typeof x.importo === 'number' ? x.importo : null } : null)
   return {
     versione: 1,
     valuta: 'EUR',
     coppie: v.costi?.coppie ?? null,
     adultiInVolo: adulti,
     partenze: v.voli?.andata?.da ?? null,
+    arrivo: v.voli?.andata?.a ?? null,
+    ritornoDa: v.voli?.ritorno?.da ?? null,
     accesso: acc ? { aeroporti: acc, persona } : null,
     alloggi: al
       ? {
@@ -86,6 +102,16 @@ export function datiPagina(v, extra = {}) {
     rientro: v.voli?.rientroOspiti?.attivo === true
       ? { adulti: v.voli.rientroOspiti.adulti, da: v.voli.rientroOspiti.da, a: v.voli.rientroOspiti.a, date: v.voli.rientroOspiti.date }
       : null,
+    ospiti: voliOspiti(v.voli),
+    // Scenari di confronto (voli.alternative), ognuno con il suo CSV e i suoi costi (costi.alternative[id]).
+    alternative: (v.voli?.alternative ?? []).map((a) => {
+      const c = v.costi?.alternative?.[a.id] ?? {}
+      return {
+        id: a.id, nome: a.nome ?? a.id, descrizione: a.descrizione ?? '', csv: a.csv ?? 'voli-' + a.id + '.csv',
+        partenze: a.andata.da, arrivo: a.andata.a, ritornoDa: a.ritorno.da, ospiti: voliOspiti(a),
+        carburante: carburante(carb && { ...carb, ...c.carburante }), noleggio: noleggio(c.noleggio),
+      }
+    }),
     playlist: datiPlaylist(extra.playlist, extra.spotify, extra.generi),
   }
 }

@@ -8,6 +8,7 @@
 //   node scripts/spotify.mjs --dry-run      scaletta e query, senza rete
 //
 // Ripetibile: se src/spotify.json ha già l'ID, sostituisce i brani della stessa playlist.
+// I viaggi con `playlistDi` (src/viaggi.js) usano la playlist di un altro: per loro non si crea niente.
 // La playlist è pubblica e non collaborativa (vedi README): il player incorporato funziona
 // per tutti e la fonte di verità resta src/playlist.js.
 
@@ -18,6 +19,7 @@ import { createServer } from 'node:http'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { playlist as PLAYLIST } from '../src/playlist.js'
+import { viaggi as VIAGGI } from '../src/viaggi.js'
 
 export const REDIRECT = 'http://127.0.0.1:8888/callback'
 export const SCOPE = 'playlist-modify-public playlist-modify-private'
@@ -107,6 +109,12 @@ export function esitoCallback(reqUrl, state, redirect = REDIRECT) {
 
 /** Elenco piatto dei brani di una scaletta. */
 export const brani = (pl) => pl.blocchi.flatMap((b) => b.brani.map(([artista, titolo]) => ({ artista, titolo, blocco: b.titolo })))
+
+/** Slug della playlist da usare al posto di quella di `slug` (campo `playlistDi`), altrimenti null. */
+export function playlistDi(slug, viaggi = VIAGGI) {
+  const di = viaggi.find((v) => v.slug === slug)?.playlistDi
+  return di && di !== slug ? di : null
+}
 
 function leggiId() {
   return existsSync(FILE_ID) ? JSON.parse(readFileSync(FILE_ID, 'utf8')) : {}
@@ -209,14 +217,17 @@ async function main() {
   const pl = PLAYLIST[slug]
   if (!pl) throw new Error('nessuna scaletta per ' + slug + ' in src/playlist.js')
   const lista = brani(pl)
+  const di = playlistDi(slug)
 
   if (argv.includes('--dry-run')) {
     console.log(pl.nome + ': ' + lista.length + ' brani in ' + pl.blocchi.length + ' blocchi')
     for (const b of pl.blocchi) console.log('  giorno ' + b.giorno + ' · ' + b.titolo + ': ' + b.brani.length + ' brani')
     console.log('Esempio di query: ' + query(lista[0].artista, lista[0].titolo).stretta)
-    console.log('ID salvato: ' + (leggiId()[slug] || '(nessuno, verrà creata una playlist nuova)'))
+    if (di) console.log('Usa la playlist di ' + di + ' (playlistDi): nessuna playlist da creare per ' + slug)
+    else console.log('ID salvato: ' + (leggiId()[slug] || '(nessuno, verrà creata una playlist nuova)'))
     return
   }
+  if (di) throw new Error(slug + ' usa la playlist di ' + di + ' (playlistDi in src/viaggi.js): rilancia con --slug ' + di)
 
   const clientId = process.env.SPOTIFY_CLIENT_ID
   if (!clientId) throw new Error('SPOTIFY_CLIENT_ID mancante (vedi README, «Playlist del viaggio»)')

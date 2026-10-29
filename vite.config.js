@@ -7,14 +7,14 @@ import { GENERI, playlist } from './src/playlist.js'
 import { viaggi } from './src/viaggi.js'
 
 // Genera /<slug>/viaggio.json (accesso aeroporti, tappe, extra) per ogni viaggio
-// con voli, alloggi, costi o playlist (src/playlist.js, ID in src/spotify.json):
-// la pagina lo legge accanto a sé.
+// con voli, alloggi, costi o playlist (src/playlist.js, ID in src/spotify.json,
+// sotto `playlistDi` se il viaggio usa la playlist di un altro): la pagina lo legge accanto a sé.
 function datiViaggi() {
   const lista = viaggi.filter((v) => v.voli || v.alloggi || v.costi || playlist[v.slug])
   const fileSpotify = resolve(import.meta.dirname, 'src', 'spotify.json')
   const spotify = () => (existsSync(fileSpotify) ? JSON.parse(readFileSync(fileSpotify, 'utf8')) : {})
   const json = (v) =>
-    JSON.stringify(datiPagina(v, { playlist: playlist[v.slug], spotify: spotify()[v.slug], generi: GENERI }), null, 2) + '\n'
+    JSON.stringify(datiPagina(v, { playlist: playlist[v.slug], spotify: spotify()[v.playlistDi ?? v.slug], generi: GENERI }), null, 2) + '\n'
   return {
     name: 'dati-viaggi',
     buildStart() {

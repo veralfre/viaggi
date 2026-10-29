@@ -1,7 +1,7 @@
 name: Prezzi voli e alloggi
 
 # Ogni due giorni cerca i prezzi dei voli e degli alloggi dei viaggi attivi
-# (src/viaggi.js), aggiunge le righe a public/<slug>/voli.csv e alloggi.csv
+# (src/viaggi.js), aggiunge le righe a public/<slug>/voli*.csv (uno per scenario) e alloggi.csv
 # e ripubblica il sito: un solo commit e un solo deploy per esecuzione.
 on:
   schedule:
@@ -55,7 +55,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           shopt -s nullglob
-          files=(public/*/voli.csv public/*/alloggi.csv)
+          files=(public/*/voli*.csv public/*/alloggi.csv)
           if [ ${#files[@]} -gt 0 ]; then git add -- "${files[@]}"; fi
           if git diff --cached --quiet; then
             echo "Nessun prezzo nuovo da salvare"

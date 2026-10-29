@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { accessoPersona, carburante, costoAccesso, datiPagina, notti } from '../src/costi.js'
+import { accessoPersona, carburante, costoAccesso, datiPagina, notti, voliOspiti } from '../src/costi.js'
 import { viaggi } from '../src/viaggi.js'
 
 const ovest = viaggi.find((v) => v.slug === 'ovest-2027')
+const breve = viaggi.find((v) => v.slug === 'ovest-2027-short')
 const acc = ovest.voli.accesso
 
 test('accesso: andata + ritorno + parcheggio, diviso per chi vola', () => {
@@ -47,5 +48,48 @@ test('datiPagina: tappe consecutive per 14 notti, noleggio tra gli extra, carbur
   assert.deepEqual(d.extra, [{ voce: ovest.costi.noleggio.voce, importo: 1816 }])
   assert.deepEqual(d.carburante, { km: 2300, litri: 288, importo: 244.38 })
   assert.deepEqual(datiPagina({ costi: { extra: [{ voce: 'Pulizie', importo: null }] } }).extra, [{ voce: 'Pulizie', importo: null }])
-  assert.deepEqual(datiPagina({ slug: 'x' }), { versione: 1, valuta: 'EUR', coppie: null, adultiInVolo: null, partenze: null, accesso: null, alloggi: null, extra: [], carburante: null, rientro: null, playlist: null })
+  assert.deepEqual(d.ospiti, [{ id: 'rientro', voce: 'Volo di rientro', adulti: 2, da: ['BZN'], a: ['DEN'], date: ['2027-07-29'] }])
+  assert.deepEqual(d.alternative, [])
+  assert.deepEqual(datiPagina({ slug: 'x' }), {
+    versione: 1, valuta: 'EUR', coppie: null, adultiInVolo: null, partenze: null, arrivo: null, ritornoDa: null, accesso: null, alloggi: null, extra: [],
+    carburante: null, rientro: null, ospiti: [], alternative: [], playlist: null,
+  })
+})
+
+test('voliOspiti: lista (scarta attivo false) e vecchia forma rientroOspiti', () => {
+  assert.deepEqual(voliOspiti(breve.voli).map((t) => [t.id, t.da, t.a, t.date, t.adulti]), [
+    ['arrivo', ['DEN'], ['JAC'], ['2027-07-20'], 2],
+    ['rientro', ['BZN'], ['DEN'], ['2027-07-29'], 2],
+  ])
+  assert.deepEqual(voliOspiti({ ospiti: [{ id: 'a', adulti: 2, da: ['X'], a: ['Y'], date: ['2027-01-01'], attivo: false }] }), [])
+  assert.deepEqual(voliOspiti(ovest.voli), [{ id: 'rientro', voce: 'Volo di rientro', adulti: 2, da: ['BZN'], a: ['DEN'], date: ['2027-07-29'] }])
+  assert.deepEqual(voliOspiti({ rientroOspiti: { ...ovest.voli.rientroOspiti, attivo: false } }), [])
+  assert.deepEqual(voliOspiti(undefined), [])
+})
+
+test('datiPagina del viaggio breve: 9 notti dal 20 al 29, noleggio da definire, chi ospita, scenario Salt Lake City', () => {
+  const d = datiPagina(breve)
+  assert.equal(d.coppie, 3)
+  assert.deepEqual(d.partenze, ['BLQ', 'MXP', 'VCE'])
+  const t = d.alloggi.tappe
+  assert.deepEqual(t.map((x) => x.id), ['jackson', 'west-yellowstone', 'gardiner', 'bozeman'])
+  assert.equal(t[0].dal, '2027-07-20')
+  assert.equal(t.at(-1).al, '2027-07-29')
+  for (let i = 1; i < t.length; i++) assert.equal(t[i].dal, t[i - 1].al)
+  assert.equal(t.reduce((n, x) => n + x.notti, 0), 9)
+  assert.deepEqual(d.extra, [{ voce: breve.costi.noleggio.voce, importo: null }])
+  assert.deepEqual(d.carburante, carburante(breve.costi.carburante))
+  assert.equal(d.carburante.km, breve.costi.carburante.km)
+  assert.equal(d.rientro, null)
+  assert.deepEqual(d.ospiti.map((x) => x.id), ['arrivo', 'rientro'])
+  assert.equal(d.alternative.length, 1)
+  const a = d.alternative[0]
+  assert.equal(a.id, 'slc')
+  assert.equal(a.csv, 'voli-slc.csv')
+  assert.deepEqual([a.partenze, a.arrivo, a.ritornoDa], [['BLQ', 'MXP', 'VCE'], ['SLC'], ['SLC']])
+  assert.deepEqual(a.ospiti.map((x) => [x.da[0], x.a[0], x.date[0]]), [['DEN', 'SLC', '2027-07-20'], ['SLC', 'DEN', '2027-07-29']])
+  assert.deepEqual(a.carburante, carburante(breve.costi.carburante, breve.costi.alternative.slc.carburante.km))
+  assert.ok(a.carburante.km > d.carburante.km)
+  assert.deepEqual(a.noleggio, { voce: breve.costi.alternative.slc.noleggio.voce, importo: null })
+  assert.match(a.descrizione, /Salt Lake City/)
 })

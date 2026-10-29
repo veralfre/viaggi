@@ -15,6 +15,7 @@ function App() {
               <h2>{v.titolo}</h2>
               <p className="date">{v.date}</p>
               <p className="luoghi">{v.luoghi}</p>
+              {v.nota && <p className="nota">{v.nota}</p>}
             </a>
           </li>
         ))}

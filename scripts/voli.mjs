@@ -4,6 +4,8 @@
 // e aggiunge le opzioni trovate a public/<slug>/voli.csv.
 // Per ogni aeroporto di partenza prende l'andata più economica e chiede i
 // ritorni di quell'itinerario (departure_token): è il prezzo vero, andata e ritorno.
+// Più i voli di sola andata di chi ospita (`voli.ospiti`, righe tipo=ospiti) e gli
+// scenari di confronto (`voli.alternative`), ognuno nel suo public/<slug>/voli-<id>.csv.
 //
 //   node scripts/voli.mjs                 esecuzione reale (serve SERPAPI_KEY)
 //   node scripts/voli.mjs --dry-run       piano e budget, senza chiamate
@@ -18,6 +20,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { voliOspiti } from '../src/costi.js'
 import { viaggi as VIAGGI } from '../src/viaggi.js'
 import {
   ErroreFatale,
@@ -36,7 +39,7 @@ export const GL = 'it'
 // Il cron gira ogni 2 giorni (giorni 1, 3, …, 31): al massimo 16 esecuzioni al mese.
 export const ESECUZIONI_MESE = 16
 export const LIMITE_MESE = 250
-// 220: con il volo di rientro degli ospiti Ovest 2027 fa 13 × 16 = 208 al mese.
+// 220: Ovest 2027 breve, due scenari con i voli di chi ospita, fa 13 × 16 = 208 al mese.
 export const SOGLIA_AVVISO = 220
 // 'totale' = il prezzo restituito vale per tutti gli adulti; 'persona' = già a persona.
 // Si verifica con --calibra.
@@ -73,21 +76,40 @@ export function coppie(voli, oggi = '') {
 }
 
 /**
- * Date del volo di rientro di chi ospita (solo andata), da oggi in poi.
- * Config: voli.rientroOspiti = { attivo, adulti, da: [...], a: [...], date: [...] }.
+ * Scenari di ricerca di un viaggio: il principale (public/<slug>/voli.csv) e le
+ * alternative di `voli.alternative` (public/<slug>/voli-<id>.csv), stessi adulti.
  */
-export function rientri(voli, oggi = '') {
-  const r = voli?.rientroOspiti
-  if (r?.attivo !== true) return []
-  return r.date.filter((d) => !oggi || d >= oggi)
+export function scenari(v) {
+  const alt = (v.voli.alternative ?? []).map((a) => ({
+    id: a.id,
+    csv: a.csv ?? 'voli-' + a.id + '.csv',
+    voli: { adulti: a.adulti ?? v.voli.adulti, andata: a.andata, ritorno: a.ritorno, ospiti: a.ospiti ?? [] },
+  }))
+  return [{ id: '', csv: 'voli.csv', voli: v.voli }, ...alt]
 }
 
-/** Ricerche per esecuzione (coppie + una per aeroporto di partenza + rientri) e stima mensile. */
+/**
+ * Ricerche di sola andata di chi ospita, una per tratta e data da oggi in poi:
+ * { id, voce, adulti, da, a, data, tipo }. tipo = 'ospiti' (lista `voli.ospiti`)
+ * o 'rientro' (vecchia forma `voli.rientroOspiti`, righe che la pagina lunga legge così).
+ */
+export function tratteOspiti(voli, oggi = '') {
+  const tipo = Array.isArray(voli?.ospiti) ? 'ospiti' : 'rientro'
+  return voliOspiti(voli).flatMap((t) => t.date.filter((d) => !oggi || d >= oggi).map((data) => ({ ...t, data, tipo })))
+}
+
+/** Date del rientro di chi ospita (vecchia forma, per compatibilità). */
+export const rientri = (voli, oggi = '') => tratteOspiti(voli, oggi).map((t) => t.data)
+
+/** Ricerche per esecuzione di uno scenario: coppie + una per aeroporto di partenza + chi ospita; 0 senza coppie future. */
+export function ricercheScenario(voli, oggi = '') {
+  const n = coppie(voli, oggi).length
+  return n ? n + voli.andata.da.length + tratteOspiti(voli, oggi).length : 0
+}
+
+/** Ricerche per esecuzione (somma su viaggi e scenari) e stima mensile. */
 export function stimaBudget(trips, oggi = '') {
-  const perEsecuzione = trips.reduce(
-    (n, v) => n + coppie(v.voli, oggi).length + v.voli.andata.da.length + rientri(v.voli, oggi).length,
-    0,
-  )
+  const perEsecuzione = trips.reduce((n, v) => n + scenari(v).reduce((m, s) => m + ricercheScenario(s.voli, oggi), 0), 0)
   const alMese = perEsecuzione * ESECUZIONI_MESE
   const livello = alMese > LIMITE_MESE ? 'errore' : alMese > SOGLIA_AVVISO ? 'avviso' : 'ok'
   return { perEsecuzione, alMese, livello }
@@ -114,15 +136,15 @@ export function parametri(voli, coppia, extra = {}) {
   return p
 }
 
-/** Parametri della ricerca di solo andata (type=2) per il rientro di chi ospita. */
-export function parametriRientro(rientro, data, extra = {}) {
+/** Parametri della ricerca di solo andata (type=2) per un volo di chi ospita. */
+export function parametriOspiti(tratta, data, extra = {}) {
   const p = new URLSearchParams({
     engine: 'google_flights',
     type: '2',
-    departure_id: rientro.da.join(','),
-    arrival_id: rientro.a.join(','),
+    departure_id: tratta.da.join(','),
+    arrival_id: tratta.a.join(','),
     outbound_date: data,
-    adults: String(rientro.adulti),
+    adults: String(tratta.adulti),
     currency: VALUTA,
     hl: HL,
     gl: GL,
@@ -130,6 +152,7 @@ export function parametriRientro(rientro, data, extra = {}) {
   for (const [k, v] of Object.entries(extra)) if (v != null) p.set(k, String(v))
   return p
 }
+export const parametriRientro = parametriOspiti
 
 /** Opzioni di volo (best_flights + other_flights) in forma piatta. */
 export function opzioni(json) {
@@ -218,6 +241,9 @@ export function scriviCsv(file, rows) {
   scriviCsvComune(file, HEADER, rows, [HEADER_V1])
 }
 
+/** Nome di uno scenario nei messaggi: lo slug, con l'id tra parentesi quadre per le alternative. */
+const nomeScenario = (v, s) => v.slug + (s.id ? ' [' + s.id + ']' : '')
+
 function selezione(viaggi, oggi, slug, log) {
   for (const v of viaggi) {
     if (v.voli?.attivo === true && !v.voli.andata.date.some((d) => d >= oggi)) {
@@ -240,8 +266,9 @@ function controllaBudget(trips, oggi, log) {
   return b
 }
 
-/** Esecuzione per un viaggio: ritorna { rows } oppure { errore }. */
-async function cercaViaggio(v, run, { apiKey, fetchImpl, ritardoRetry, log }) {
+/** Esecuzione per uno scenario (`nome` per i messaggi): ritorna { rows } oppure { errore }. */
+async function cercaScenario(nome, voli, run, { apiKey, fetchImpl, ritardoRetry, log }) {
+  const v = { slug: nome, voli }
   const lista = coppie(v.voli, run.slice(0, 10))
   const trovate = []
   let fallite = 0
@@ -315,14 +342,15 @@ async function cercaViaggio(v, run, { apiKey, fetchImpl, ritardoRetry, log }) {
     )
   }
 
-  // Volo di rientro di chi ospita (solo andata): righe tipo 'rientro', data_ritorno e gruppo vuoti.
-  // Se fallisce è solo un avviso: non blocca il resto del CSV.
-  const ro = v.voli.rientroOspiti
-  for (const data of rientri(v.voli, run.slice(0, 10))) {
+  // Voli di chi ospita (solo andata): righe tipo 'ospiti' (o 'rientro' nella vecchia forma),
+  // data_ritorno e gruppo vuoti, migliore sulla più economica di ogni tratta e data.
+  // Se una ricerca fallisce è solo un avviso: non blocca il resto del CSV.
+  for (const ro of tratteOspiti(v.voli, run.slice(0, 10))) {
+    const data = ro.data
     let opts = []
     let motivo = ''
     try {
-      const r = await cerca(parametriRientro(ro, data, { api_key: apiKey }), { fetchImpl, ritardoRetry })
+      const r = await cerca(parametriOspiti(ro, data, { api_key: apiKey }), { fetchImpl, ritardoRetry })
       opts = r.stato === 'fallito' ? [] : opzioni(r.json)
       motivo = r.motivo || 'nessuna opzione'
     } catch (e) {
@@ -330,14 +358,14 @@ async function cercaViaggio(v, run, { apiKey, fetchImpl, ritardoRetry, log }) {
       motivo = e.message
     }
     if (!opts.length) {
-      log.warn(v.slug + ' rientro ' + ro.da.join(',') + ' → ' + ro.a.join(',') + ' ' + data + ': nessun prezzo (' + motivo + ')')
+      log.warn(v.slug + ' ' + ro.id + ' ' + ro.da.join(',') + ' → ' + ro.a.join(',') + ' ' + data + ': nessun prezzo (' + motivo + ')')
       continue
     }
-    log.info(v.slug + ' rientro ' + ro.da.join(',') + ' → ' + ro.a.join(',') + ' ' + data + ': ' + opts.length + ' opzioni')
+    log.info(v.slug + ' ' + ro.id + ' ' + ro.da.join(',') + ' → ' + ro.a.join(',') + ' ' + data + ': ' + opts.length + ' opzioni')
     const migliore = piuEconomica(opts)
     rows.push(
       ...righe({
-        run, tipo: 'rientro', coppia: { andata: data, ritorno: '' }, adulti: ro.adulti, opts,
+        run, tipo: ro.tipo, coppia: { andata: data, ritorno: '' }, adulti: ro.adulti, opts,
         segna: (o) => ({ migliore: o === migliore }),
       }),
     )
@@ -372,17 +400,22 @@ export async function esegui({
 
     if (dryRun) {
       for (const v of trips) {
-        const lista = coppie(v.voli, oggi)
-        const k = v.voli.andata.da.length
-        log.info(
-          v.slug + ': ' + v.voli.adulti + ' adulti, ' + v.voli.andata.da.join(',') + ' → ' + v.voli.andata.a.join(',') +
-            ' / ' + v.voli.ritorno.da.join(',') + ' → ' + v.voli.ritorno.a.join(',') + ', ' + lista.length +
-            ' coppie di date + ' + k + ' ricerche per i ritorni (una per aeroporto) = ' + (lista.length + k) + ' ricerche',
-        )
-        for (const c of lista) log.info('  ' + c.andata + ' → ' + c.ritorno)
-        const ro = v.voli.rientroOspiti
-        for (const d of rientri(v.voli, oggi)) {
-          log.info('  + rientro di chi ospita, solo andata: ' + ro.da.join(',') + ' → ' + ro.a.join(',') + ' ' + d + ', ' + ro.adulti + ' adulti (1 ricerca)')
+        for (const s of scenari(v)) {
+          const sv = s.voli
+          const lista = coppie(sv, oggi)
+          const k = sv.andata.da.length
+          const tratte = tratteOspiti(sv, oggi)
+          log.info(
+            nomeScenario(v, s) + ' (' + s.csv + '): ' + sv.adulti + ' adulti, ' + sv.andata.da.join(',') + ' → ' + sv.andata.a.join(',') +
+              ' / ' + sv.ritorno.da.join(',') + ' → ' + sv.ritorno.a.join(',') + ', ' + lista.length +
+              ' coppie di date + ' + k + ' ricerche per i ritorni (una per aeroporto) + ' + tratte.length +
+              ' voli di chi ospita = ' + ricercheScenario(sv, oggi) + ' ricerche',
+          )
+          if (!lista.length) log.info('  date di andata già passate, salto lo scenario')
+          for (const c of lista) log.info('  ' + c.andata + ' → ' + c.ritorno)
+          for (const t of tratte) {
+            log.info('  + chi ospita, solo andata (' + t.id + '): ' + t.da.join(',') + ' → ' + t.a.join(',') + ' ' + t.data + ', ' + t.adulti + ' adulti (1 ricerca)')
+          }
         }
       }
       return controllaBudget(trips, oggi, log).livello === 'errore' ? 1 : 0
@@ -416,21 +449,36 @@ export async function esegui({
 
     if (controllaBudget(trips, oggi, log).livello === 'errore') return 1
 
+    // Ogni scenario scrive il suo CSV: l'errore di uno non blocca gli altri (ma il codice è 1).
     let codice = 0
     for (const v of trips) {
-      const esito = await cercaViaggio(v, run, { apiKey, fetchImpl, ritardoRetry, log })
-      if (esito.errore) {
-        log.error(esito.errore)
-        codice = 1
-        continue
-      }
-      const file = path.join(outDir, v.slug, 'voli.csv')
-      try {
-        scriviCsv(file, esito.rows)
-        log.info(v.slug + ': ' + esito.rows.length + ' righe aggiunte a ' + path.relative(process.cwd(), file))
-      } catch (e) {
-        log.error(e.message)
-        codice = 1
+      for (const s of scenari(v)) {
+        const nome = nomeScenario(v, s)
+        if (!coppie(s.voli, oggi).length) {
+          log.info(nome + ': date di andata già passate, salto')
+          continue
+        }
+        let esito
+        try {
+          esito = await cercaScenario(nome, s.voli, run, { apiKey, fetchImpl, ritardoRetry, log })
+        } catch (e) {
+          // Richiesta rifiutata (HTTP 400): riguarda solo questo scenario. Chiave e limite valgono per tutti.
+          if (!(e instanceof ErroreFatale) || !/HTTP 400/.test(e.message)) throw e
+          esito = { errore: nome + ': ' + e.message }
+        }
+        if (esito.errore) {
+          log.error(esito.errore)
+          codice = 1
+          continue
+        }
+        const file = path.join(outDir, v.slug, s.csv)
+        try {
+          scriviCsv(file, esito.rows)
+          log.info(nome + ': ' + esito.rows.length + ' righe aggiunte a ' + path.relative(process.cwd(), file))
+        } catch (e) {
+          log.error(e.message)
+          codice = 1
+        }
       }
     }
     return codice

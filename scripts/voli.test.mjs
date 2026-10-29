@@ -19,15 +19,21 @@ import {
   fetchFixture,
   opzioni,
   parametri,
+  parametriOspiti,
   piuEconomica,
   righe,
+  scenari,
   stimaBudget,
+  tratteOspiti,
 } from './voli.mjs'
 
 const QUI = path.dirname(fileURLToPath(import.meta.url))
 const FIXTURE = path.join(QUI, 'fixtures', 'voli')
 const json = (nome) => JSON.parse(readFileSync(path.join(FIXTURE, nome + '.json'), 'utf8'))
-const ovest = viaggi.find((v) => v.slug === 'ovest-2027')
+// Il viaggio lungo è disattivato dal 2026-10-29: nei test resta la copia riattivata.
+const lungo = viaggi.find((v) => v.slug === 'ovest-2027')
+const ovest = { ...lungo, voli: { ...lungo.voli, attivo: true }, alloggi: { ...lungo.alloggi, attivo: true } }
+const breve = viaggi.find((v) => v.slug === 'ovest-2027-short')
 const silenzio = () => {
   const msgs = { info: [], warn: [], error: [] }
   return { msgs, info: (m) => msgs.info.push(m), warn: (m) => msgs.warn.push(m), error: (m) => msgs.error.push(m) }
@@ -409,12 +415,130 @@ describe('esecuzione completa con fixture', () => {
     assert.equal(chiamate, 0)
   })
 
-  test('CLI --dry-run: 10 ricerche per esecuzione, 160 al mese', () => {
+  test('CLI --dry-run: solo il viaggio breve, due scenari, 13 ricerche per esecuzione, 208 al mese', () => {
     const r = spawnSync(process.execPath, [path.join(QUI, 'voli.mjs'), '--dry-run'], {
       encoding: 'utf8',
-      env: { ...process.env, SERPAPI_KEY: '', VOLI_NOW: '2026-10-28T05:17:00Z' },
+      env: { ...process.env, SERPAPI_KEY: '', VOLI_NOW: '2026-10-29T05:17:00Z' },
     })
     assert.equal(r.status, 0, r.stderr)
-    assert.match(r.stdout, /10 ricerche per esecuzione, circa 160 al mese/)
+    assert.match(r.stdout, /13 ricerche per esecuzione, circa 208 al mese/)
+    assert.match(r.stdout, /ovest-2027-short \(voli\.csv\): 4 adulti, BLQ,MXP,VCE → JAC .* = 7 ricerche/)
+    assert.match(r.stdout, /ovest-2027-short \[slc\] \(voli-slc\.csv\): .* = 6 ricerche/)
+    assert.match(r.stdout, /chi ospita, solo andata \(arrivo\): DEN → JAC 2027-07-20, 2 adulti/)
+    assert.match(r.stdout, /chi ospita, solo andata \(rientro\): SLC → DEN 2027-07-29, 2 adulti/)
+    assert.doesNotMatch(r.stdout, /ovest-2027[: ]/)
+  })
+})
+
+describe('viaggio breve: scenari e voli di chi ospita', () => {
+  test('attivi: dal 2026-10-29 solo il breve', () => {
+    assert.deepEqual(attivi(viaggi, '2026-10-29').map((v) => v.slug), ['ovest-2027-short'])
+    assert.equal(lungo.voli.attivo, false)
+  })
+
+  test('scenari: principale e Salt Lake City, ognuno con il suo CSV', () => {
+    const s = scenari(breve)
+    assert.deepEqual(s.map((x) => [x.id, x.csv]), [['', 'voli.csv'], ['slc', 'voli-slc.csv']])
+    assert.equal(s[0].voli, breve.voli)
+    assert.equal(s[1].voli.adulti, 4)
+    assert.deepEqual(s[1].voli.andata.a, ['SLC'])
+    assert.deepEqual(scenari(ovest).map((x) => x.csv), ['voli.csv'])
+  })
+
+  test('tratteOspiti: lista (tipo ospiti) e vecchia forma (tipo rientro), solo date future', () => {
+    assert.deepEqual(tratteOspiti(breve.voli, '2026-10-29').map((t) => [t.id, t.da[0], t.a[0], t.data, t.adulti, t.tipo]), [
+      ['arrivo', 'DEN', 'JAC', '2027-07-20', 2, 'ospiti'],
+      ['rientro', 'BZN', 'DEN', '2027-07-29', 2, 'ospiti'],
+    ])
+    assert.deepEqual(tratteOspiti(breve.voli, '2027-07-21').map((t) => t.id), ['rientro'])
+    assert.deepEqual(tratteOspiti(ovest.voli).map((t) => [t.id, t.data, t.tipo]), [['rientro', '2027-07-29', 'rientro']])
+    assert.deepEqual(tratteOspiti({ ospiti: [{ ...breve.voli.ospiti[0], attivo: false }] }), [])
+    assert.deepEqual(tratteOspiti({}), [])
+    assert.deepEqual(Object.fromEntries(parametriOspiti(breve.voli.ospiti[0], '2027-07-20')), {
+      engine: 'google_flights', type: '2', departure_id: 'DEN', arrival_id: 'JAC', outbound_date: '2027-07-20', adults: '2',
+      currency: 'EUR', hl: 'it', gl: 'it',
+    })
+  })
+
+  test('stimaBudget: 13 per esecuzione (2 + 3 + 2 principale, 1 + 3 + 2 Salt Lake City), 208 al mese', () => {
+    assert.deepEqual(stimaBudget([breve], '2026-10-29'), { perEsecuzione: 13, alMese: 208, livello: 'ok' })
+    // il 20 luglio resta una coppia per scenario (con i due voli di chi ospita), dal 21 niente
+    assert.deepEqual(stimaBudget([breve], '2027-07-20'), { perEsecuzione: 12, alMese: 192, livello: 'ok' })
+    assert.deepEqual(stimaBudget([breve], '2027-07-21'), { perEsecuzione: 0, alMese: 0, livello: 'ok' })
+    assert.equal(stimaBudget([breve, ovest], '2026-10-29').livello, 'errore')
+  })
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'voli-breve-'))
+  after(() => rmSync(dir, { recursive: true, force: true }))
+  const base = { viaggi: [breve], apiKey: 'fixture', fetchImpl: fetchFixture(FIXTURE), ritardoRetry: 0, now: '2026-10-29T05:17:00Z' }
+  const col = (x, k) => x[HEADER.indexOf(k)]
+
+  test('esecuzione con fixture: voli.csv e voli-slc.csv, righe tipo ospiti per due tratte', async () => {
+    const d = mkdtempSync(path.join(dir, 'b-'))
+    const cercate = []
+    const f0 = fetchFixture(FIXTURE)
+    const fetchImpl = async (url) => {
+      const p = new URL(url).searchParams
+      if (p.get('type') === '2') cercate.push(p.get('departure_id') + '→' + p.get('arrival_id') + ' ' + p.get('outbound_date'))
+      return f0(url)
+    }
+    assert.equal(await esegui({ ...base, fetchImpl, outDir: d, log: silenzio() }), 0)
+    assert.deepEqual(cercate, ['DEN→JAC 2027-07-20', 'BZN→DEN 2027-07-29', 'DEN→SLC 2027-07-20', 'SLC→DEN 2027-07-29'])
+    const principale = parseCSV(readFileSync(path.join(d, 'ovest-2027-short', 'voli.csv'), 'utf8'))
+    const slc = parseCSV(readFileSync(path.join(d, 'ovest-2027-short', 'voli-slc.csv'), 'utf8'))
+    assert.deepEqual(principale[0], HEADER)
+    assert.deepEqual(slc[0], HEADER)
+    // 2 coppie × 4 + 3 follow-up × 2 + 2 tratte × 3; Salt Lake City: 1 coppia × 4 + 3 × 2 + 2 × 3
+    assert.equal(principale.length, 1 + 2 * 4 + 3 * 2 + 2 * 3)
+    assert.equal(slc.length, 1 + 4 + 3 * 2 + 2 * 3)
+    const ospiti = principale.slice(1).filter((x) => col(x, 'tipo') === 'ospiti')
+    assert.equal(ospiti.length, 6)
+    assert.deepEqual([...new Set(ospiti.map((x) => col(x, 'data_andata')))], ['2027-07-20', '2027-07-29'])
+    assert.ok(ospiti.every((x) => col(x, 'data_ritorno') === '' && col(x, 'gruppo') === '' && col(x, 'adulti') === '2'))
+    // una migliore per tratta e data
+    assert.equal(ospiti.filter((x) => col(x, 'migliore') === '1').length, 2)
+    assert.equal(principale.slice(1).some((x) => col(x, 'tipo') === 'rientro'), false)
+    assert.deepEqual([...new Set(slc.slice(1).filter((x) => col(x, 'tipo') !== 'ospiti').map((x) => col(x, 'data_andata')))], ['2027-07-20'])
+  })
+
+  test('errore del solo scenario Salt Lake City: voli.csv scritto, voli-slc.csv no, codice 1', async () => {
+    const d = mkdtempSync(path.join(dir, 's-'))
+    const f0 = fetchFixture(FIXTURE)
+    const fetchImpl = async (url) => {
+      const p = new URL(url).searchParams
+      const slc = p.get('type') === '3' && JSON.parse(p.get('multi_city_json'))[0].arrival_id === 'SLC'
+      return slc ? { ok: false, status: 503, json: async () => ({ error: 'busy' }) } : f0(url)
+    }
+    const log = silenzio()
+    assert.equal(await esegui({ ...base, fetchImpl, outDir: d, log }), 1)
+    assert.equal(existsSync(path.join(d, 'ovest-2027-short', 'voli.csv')), true)
+    assert.equal(existsSync(path.join(d, 'ovest-2027-short', 'voli-slc.csv')), false)
+    assert.match(log.msgs.error.join('\n'), /ovest-2027-short \[slc\]: 1 ricerche fallite su 1/)
+  })
+
+  test('richiesta rifiutata (HTTP 400) nello scenario principale: si cerca e si scrive comunque Salt Lake City', async () => {
+    const d = mkdtempSync(path.join(dir, 'r-'))
+    const f0 = fetchFixture(FIXTURE)
+    const fetchImpl = async (url) => {
+      const p = new URL(url).searchParams
+      const jac = p.get('type') === '3' && JSON.parse(p.get('multi_city_json'))[0].arrival_id === 'JAC'
+      return jac ? { ok: false, status: 400, json: async () => ({ error: 'bad request' }) } : f0(url)
+    }
+    const log = silenzio()
+    assert.equal(await esegui({ ...base, fetchImpl, outDir: d, log }), 1)
+    assert.equal(existsSync(path.join(d, 'ovest-2027-short', 'voli.csv')), false)
+    assert.equal(existsSync(path.join(d, 'ovest-2027-short', 'voli-slc.csv')), true)
+    assert.match(log.msgs.error.join('\n'), /HTTP 400/)
+  })
+
+  test('alternativa con andate passate: saltata, il principale si scrive', async () => {
+    const d = mkdtempSync(path.join(dir, 'p-'))
+    const alt = { ...breve.voli.alternative[0], andata: { ...breve.voli.alternative[0].andata, date: ['2026-01-01'] } }
+    const v = { ...breve, voli: { ...breve.voli, alternative: [alt] } }
+    assert.equal(stimaBudget([v], '2026-10-29').perEsecuzione, 7)
+    const log = silenzio()
+    assert.equal(await esegui({ ...base, viaggi: [v], outDir: d, log }), 0)
+    assert.equal(existsSync(path.join(d, 'ovest-2027-short', 'voli-slc.csv')), false)
+    assert.match(log.msgs.info.join('\n'), /\[slc\]: date di andata già passate/)
   })
 })

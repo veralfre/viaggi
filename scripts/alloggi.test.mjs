@@ -13,7 +13,10 @@ import { stimaBudget as stimaVoli } from './voli.mjs'
 const QUI = path.dirname(fileURLToPath(import.meta.url))
 const FIXTURE = path.join(QUI, 'fixtures', 'alloggi')
 const json = (nome) => JSON.parse(readFileSync(path.join(FIXTURE, nome + '.json'), 'utf8'))
-const ovest = viaggi.find((v) => v.slug === 'ovest-2027')
+// Il viaggio lungo è disattivato dal 2026-10-29: nei test resta la copia riattivata.
+const lungo = viaggi.find((v) => v.slug === 'ovest-2027')
+const ovest = { ...lungo, voli: { ...lungo.voli, attivo: true }, alloggi: { ...lungo.alloggi, attivo: true } }
+const breve = viaggi.find((v) => v.slug === 'ovest-2027-short')
 const al = ovest.alloggi
 const jackson = al.tappe.find((t) => t.id === 'jackson')
 const silenzio = () => {
@@ -52,6 +55,19 @@ describe('configurazione e budget', () => {
     assert.deepEqual(stimaBudget([ovest], '2027-07-22'), { perEsecuzione: 6, alMese: 96, livello: 'ok' })
     assert.equal(stimaBudget([ovest, ovest], '2026-10-28').livello, 'errore')
     assert.equal(stimaVoli([ovest], '2026-10-28').perEsecuzione, 10)
+  })
+
+  test('viaggio breve: unico attivo, 4 tappe consecutive, 8 ricerche per esecuzione e 128 al mese', () => {
+    assert.deepEqual(attivi(viaggi, '2026-10-29').map((v) => v.slug), ['ovest-2027-short'])
+    assert.equal(lungo.alloggi.attivo, false)
+    assert.deepEqual(tappe(breve.alloggi, '2026-10-29').map((t) => [t.id, t.dal, t.al]), [
+      ['jackson', '2027-07-20', '2027-07-23'],
+      ['west-yellowstone', '2027-07-23', '2027-07-26'],
+      ['gardiner', '2027-07-26', '2027-07-28'],
+      ['bozeman', '2027-07-28', '2027-07-29'],
+    ])
+    assert.deepEqual(stimaBudget([breve], '2026-10-29'), { perEsecuzione: 8, alMese: 128, livello: 'ok' })
+    assert.equal(stimaVoli([breve], '2026-10-29').perEsecuzione, 13)
   })
 })
 
@@ -267,12 +283,12 @@ describe('esecuzione completa con fixture', () => {
     assert.match(log.msgs.error.join('\n'), /SERPAPI_KEY_ALLOGGI mancante/)
   })
 
-  test('CLI --dry-run: 12 ricerche per esecuzione, 192 al mese', () => {
+  test('CLI --dry-run: solo il viaggio breve, 8 ricerche per esecuzione, 128 al mese', () => {
     const r = spawnSync(process.execPath, [path.join(QUI, 'alloggi.mjs'), '--dry-run'], {
       encoding: 'utf8',
-      env: { ...process.env, SERPAPI_KEY_ALLOGGI: '', ALLOGGI_NOW: '2026-10-28T05:17:00Z' },
+      env: { ...process.env, SERPAPI_KEY_ALLOGGI: '', ALLOGGI_NOW: '2026-10-29T05:17:00Z' },
     })
     assert.equal(r.status, 0, r.stderr)
-    assert.match(r.stdout, /12 ricerche per esecuzione, circa 192 al mese/)
+    assert.match(r.stdout, /8 ricerche per esecuzione, circa 128 al mese/)
   })
 })
