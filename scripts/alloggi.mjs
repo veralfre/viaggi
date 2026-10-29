@@ -5,7 +5,7 @@
 //
 //   node scripts/alloggi.mjs                 esecuzione reale (serve SERPAPI_KEY_ALLOGGI)
 //   node scripts/alloggi.mjs --dry-run       piano e budget, senza chiamate
-//   node scripts/alloggi.mjs --slug <slug>   solo quel viaggio
+//   node scripts/alloggi.mjs --slug <slug>   solo quel viaggio, anche se non attivo (rilevazione una tantum)
 //   node scripts/alloggi.mjs --fixture <dir> [--fixture-scenario vuoto|chiave] [--out <dir>]
 //
 // Variabili: SERPAPI_KEY_ALLOGGI (chiave e budget separati dai voli), ALLOGGI_NOW.
@@ -13,7 +13,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { notti as nottiTra } from '../src/costi.js'
+import { notti as nottiTra, valutaDi } from '../src/costi.js'
 import { viaggi as VIAGGI } from '../src/viaggi.js'
 import { ErroreFatale, RITARDO_RETRY_MS, adesso, cerca as cercaSerpApi, logConsole, scriviCsv as scriviCsvComune } from './serpapi.mjs'
 
@@ -23,6 +23,9 @@ export const ESECUZIONI_MESE = 16
 export const LIMITE_MESE = 250
 export const SOGLIA_AVVISO = 200
 export const FONTI = ['airbnb', 'booking']
+// Tipi di struttura Booking (property_types) di default: 201 appartamenti, 220 case vacanza.
+// Per viaggio con `alloggi.tipi` (es. per due: anche 204 hotel, 208 B&B, 216 guest house, 221 lodge).
+export const TIPI_BOOKING = ['201', '220']
 
 export const HEADER_V1 = [
   'run', 'fonte', 'tappa', 'luogo', 'check_in', 'check_out', 'notti', 'adulti', 'camere_min', 'bagni_min',
@@ -81,7 +84,7 @@ export function stimaBudget(trips, oggi = '') {
  * Parametri SerpApi per una fonte e una tappa.
  * Airbnb filtra lato API (casa intera, camere e bagni minimi).
  * Booking non ha filtri su camere e bagni: si chiede un'unica unità per tutti
- * (rooms=1) tra appartamenti e case vacanza (201, 220) e si filtra dopo.
+ * (rooms=1) tra i tipi di `alloggi.tipi` (default appartamenti e case vacanza, 201 e 220) e si filtra dopo.
  */
 export function parametri(fonte, alloggi, tappa, extra = {}) {
   const comuni = { q: tappa.q, check_in_date: tappa.dal, check_out_date: tappa.al, adults: String(alloggi.adulti), currency: VALUTA }
@@ -96,7 +99,7 @@ export function parametri(fonte, alloggi, tappa, extra = {}) {
       p.set('map_bounds', [r.north, r.east, r.south, r.west].join(','))
     }
   } else if (fonte === 'booking') {
-    p = new URLSearchParams({ engine: 'booking', ...comuni, rooms: '1', property_types: '201,220' })
+    p = new URLSearchParams({ engine: 'booking', ...comuni, rooms: '1', property_types: (alloggi.tipi ?? TIPI_BOOKING).join(',') })
   } else {
     throw new ErroreFatale('fonte sconosciuta: ' + fonte)
   }
@@ -111,8 +114,8 @@ const somma = (arr, k) => {
   const v = arr.filter((x) => num(x?.[k]) != null).map((x) => x[k] * (num(x.quantity) ?? 1))
   return v.length ? v.reduce((a, b) => a + b, 0) : null
 }
-// Valuta solo se è un codice ISO a tre lettere, altrimenti quella chiesta.
-const valuta = (c) => (typeof c === 'string' && /^[A-Z]{3}$/.test(c) ? c : VALUTA)
+// Valuta solo se è un codice ISO a tre lettere, altrimenti quella chiesta (la valuta del viaggio).
+const valutaIso = (c, fb = VALUTA) => (typeof c === 'string' && /^[A-Z]{3}$/.test(c) ? c : fb)
 /** Codice paese dal link Booking (…/hotel/us/…), o '' se manca. */
 export const paeseBooking = (u) => /\/hotel\/([a-z]{2})\//.exec(u || '')?.[1] ?? ''
 /** true se il prezzo Airbnb è a notte ("per night", "/ night") e non per il soggiorno. */
@@ -121,12 +124,15 @@ export const aNotte = (q) => typeof q === 'string' && /\bnight\b/i.test(q) && !/
 /**
  * Strutture normalizzate e filtrate (case con almeno `camere` camere e `bagni` bagni).
  * Airbnb: se camere/bagni mancano si tiene (il filtro è già lato API), se sono sotto si scarta.
- * Booking: camere e bagni dalla somma di rooms[]; se mancano si scarta.
+ * Booking: camere e bagni dalla somma di rooms[]; se mancano si scarta. Con `monolocali` e `camere` ≤ 1
+ * basta un'unità per due: monolocali (0 camere) e camere d'albergo, B&B o lodge che non dichiarano
+ * camere o bagni non si scartano; si scarta solo chi ne dichiara meno del minimo.
+ * `valuta`: quella del viaggio, per Airbnb e per le strutture Booking senza `currency` valida.
  * Con `centro` ([lat, lon]) e `raggioKm`: distanza da gps_coordinates, scartate le strutture più
  * lontane; per Booking (che le coordinate le dà sempre) anche quelle senza coordinate.
  * `stat`, se passato, conta { lontani, senzaCoordinate }.
  */
-export function strutture(fonte, json, { notti, camere, bagni, paese, centro, raggioKm = RAGGIO_KM, stat }) {
+export function strutture(fonte, json, { notti, camere, bagni, paese, centro, raggioKm = RAGGIO_KM, stat, valuta = VALUTA, monolocali = false }) {
   const out = []
   for (const o of risultati(json)) {
     let totale = num(o?.extracted_price)
@@ -143,7 +149,7 @@ export function strutture(fonte, json, { notti, camere, bagni, paese, centro, ra
         totale,
         a_notte: notti ? r2(totale / notti) : '',
         tasse: '',
-        valuta: VALUTA,
+        valuta,
         camere: num(o.bedrooms),
         bagni: num(o.bathrooms),
         letti: num(o.beds),
@@ -164,7 +170,7 @@ export function strutture(fonte, json, { notti, camere, bagni, paese, centro, ra
         totale,
         a_notte: num(o.extracted_price_per_night) ?? (notti ? r2(totale / notti) : ''),
         tasse: num(o.extracted_taxes_and_fees),
-        valuta: valuta(o.currency),
+        valuta: valutaIso(o.currency, valuta),
         camere: somma(rooms, 'bedrooms'),
         bagni: somma(rooms, 'bathrooms'),
         letti: somma(rooms, 'beds'),
@@ -176,7 +182,10 @@ export function strutture(fonte, json, { notti, camere, bagni, paese, centro, ra
         link: https(o.link),
         id: o.property_id ?? '',
       }
-      if (s.camere == null || s.bagni == null || s.camere < camere || s.bagni < bagni) continue
+      if (monolocali && camere <= 1) {
+        // Unità per due: va bene anche senza camere dichiarate (camera d'albergo) o con 0 (monolocale).
+        if (s.bagni != null && s.bagni < bagni) continue
+      } else if (s.camere == null || s.bagni == null || s.camere < camere || s.bagni < bagni) continue
       // Booking a volte risolve il luogo in un altro paese (Gardiner, MT → Gardiner, NZ): il paese è nel link.
       if (paese && paeseBooking(o.link) !== paese) continue
     }
@@ -254,7 +263,46 @@ export function scriviCsv(file, rows) {
   scriviCsvComune(file, HEADER, rows, [HEADER_V1])
 }
 
+/**
+ * Viaggi da cercare. Senza slug: quelli attivi con tappe future. Con slug: quel viaggio
+ * anche se `attivo: false` (rilevazione una tantum), purché abbia gli alloggi e una tappa futura.
+ */
+export function selezione(viaggi, oggi, slug, log = logConsole) {
+  if (slug) {
+    const v = viaggi.find((x) => x.slug === slug)
+    if (!v) {
+      log.info(slug + ': nessun viaggio con questo slug')
+      return []
+    }
+    if (!v.alloggi) {
+      log.info(slug + ': il viaggio non ha alloggi da cercare')
+      return []
+    }
+    if (!tappe(v.alloggi, oggi).length) {
+      log.info(slug + ': tappe già passate, salto')
+      return []
+    }
+    if (v.alloggi.attivo !== true) log.info(slug + ': non attivo, cercato una volta perché richiesto con --slug')
+    return [v]
+  }
+  for (const v of viaggi) {
+    if (v.alloggi?.attivo === true && !tappe(v.alloggi, oggi).length) log.info(v.slug + ': tappe già passate, salto')
+  }
+  return attivi(viaggi, oggi)
+}
+
 function controllaBudget(trips, oggi, log) {
+  // Solo viaggi non attivi (scelti con --slug): una rilevazione una tantum, il limite vale per
+  // questa esecuzione e non per 16 esecuzioni al mese.
+  if (trips.length && trips.every((v) => v.alloggi?.attivo !== true)) {
+    const n = stimaBudget(trips, oggi).perEsecuzione
+    const u = { perEsecuzione: n, alMese: n, livello: n > LIMITE_MESE ? 'errore' : n > SOGLIA_AVVISO ? 'avviso' : 'ok' }
+    const msg = 'Esecuzione una tantum alloggi: ' + n + ' ricerche (fuori dal budget mensile dei viaggi attivi, limite ' + LIMITE_MESE + ')'
+    if (u.livello === 'errore') log.error(msg + ': troppe, riduci tappe o fonti')
+    else if (u.livello === 'avviso') log.warn(msg + ': vicino al limite')
+    else log.info(msg)
+    return u
+  }
   const b = stimaBudget(trips, oggi)
   const msg =
     'Budget SerpApi alloggi: ' + b.perEsecuzione + ' ricerche per esecuzione, circa ' + b.alMese +
@@ -269,13 +317,14 @@ async function cercaViaggio(v, run, { apiKey, fetchImpl, ritardoRetry, log }) {
   const al = v.alloggi
   const lista = tappe(al, run.slice(0, 10))
   const fonti = fontiDi(al)
+  const valuta = valutaDi(v)
   const rows = []
   let fallite = 0
   let trovate = 0
   for (const t of lista) {
     let perTappa = 0
     for (const fonte of fonti) {
-      const r = await cerca(parametri(fonte, al, t, { api_key: apiKey }), { fetchImpl, ritardoRetry })
+      const r = await cerca(parametri(fonte, al, t, { api_key: apiKey, currency: valuta }), { fetchImpl, ritardoRetry })
       if (r.stato === 'fallito') {
         fallite++
         log.warn(v.slug + ' ' + t.id + ' ' + fonte + ': ricerca fallita (' + r.motivo + ')')
@@ -286,6 +335,7 @@ async function cercaViaggio(v, run, { apiKey, fetchImpl, ritardoRetry, log }) {
       const raggio = raggioDi(al, t)
       const s = strutture(fonte, r.json, {
         notti: nottiTra(t.dal, t.al), camere: al.camere, bagni: al.bagni, paese: al.paese, centro: t.centro, raggioKm: raggio, stat,
+        valuta, monolocali: al.monolocali === true,
       })
       const grezzi = risultati(r.json).length
       log.info(v.slug + ' ' + t.id + ' ' + fonte + ': ' + s.length + ' case adatte su ' + grezzi)
@@ -326,13 +376,9 @@ export async function esegui({
   try {
     const run = adesso(now, 'ALLOGGI_NOW')
     const oggi = run.slice(0, 10)
-    for (const v of viaggi) {
-      if (v.alloggi?.attivo === true && !tappe(v.alloggi, oggi).length) log.info(v.slug + ': tappe già passate, salto')
-    }
-    let trips = attivi(viaggi, oggi)
-    if (slug) trips = trips.filter((v) => v.slug === slug)
+    const trips = selezione(viaggi, oggi, slug, log)
     if (!trips.length) {
-      log.info('Nessun viaggio con alloggi attivi' + (slug ? ' con slug ' + slug : '') + ': niente da cercare.')
+      log.info((slug ? 'Nessun viaggio da cercare con slug ' + slug : 'Nessun viaggio con alloggi attivi') + ': niente da cercare.')
       return slug ? 1 : 0
     }
 
@@ -341,7 +387,7 @@ export async function esegui({
         const al = v.alloggi
         const lista = tappe(al, oggi)
         log.info(
-          v.slug + ': ' + al.adulti + ' adulti, almeno ' + al.camere + ' camere e ' + al.bagni + ' bagni, ' + lista.length +
+          v.slug + ': ' + al.adulti + ' adulti, almeno ' + al.camere + ' camere' + (al.monolocali ? ' (o monolocale)' : '') + ' e ' + al.bagni + ' bagni, ' + lista.length +
             ' tappe × ' + fontiDi(al).length + ' fonti (' + fontiDi(al).join(', ') + ') = ' + lista.length * fontiDi(al).length + ' ricerche',
         )
         for (const t of lista) {

@@ -42,6 +42,9 @@ che è di B per intero), poi una revisione e la verifica finale fatta dall'orche
 Copia la voce più simile e adattala. Campi (dettagli nel README):
 
 - `slug`, `titolo`, `date`, `luoghi`, `nota` (facoltativa, in home), `playlistDi`.
+- `valuta` (default `'EUR'`): un viaggio pagato in dollari (es. big-island-2027) mette
+  `'USD'`; i bot cercano in quella valuta e la pagina la mostra, quindi `accesso`, `extra` e
+  `carburante.prezzoLitro` vanno nella stessa valuta. `voli.gl: 'us'` se si compra dagli USA.
 - `voli`: `attivo`, `adulti`, `andata` / `ritorno` (`da`, `a`, `date` flessibili),
   `accesso` (auto + parcheggio per aeroporto italiano), `ospiti` (lista di tratte di sola
   andata `{ id, voce, adulti, da, a, date }`), `alternative` (`{ id, nome, descrizione,
@@ -58,6 +61,12 @@ voli = per scenario `coppie di date + aeroporti di partenza + tratte ospiti`; al
 `tappe × fonti`. Controlla con `npm run voli:dry` e `npm run alloggi:dry` e resta sotto
 220 (soglia di avviso) lasciando qualche esecuzione manuale. Disattiva i viaggi vecchi per
 liberare budget. Esempio: ovest-2027-short = 13/208 voli, 8/128 alloggi.
+
+**Rilevazione una tantum**: un viaggio che non si segue nel tempo resta con `attivo: false`
+(voli e alloggi) e si cerca una volta sola con `--slug <slug>` (in locale) o
+`gh workflow run voli.yml -f slug=<slug>`: lo schedule non lo vede mai, e il suo costo non
+entra nel budget mensile. Prima controlla con `node scripts/voli.mjs --dry-run --slug <slug>`
+e lo stesso per `alloggi.mjs` (big-island-2027 = 2 voli, 3 alloggi).
 
 ## 3. La pagina `public/<slug>/index.html`
 

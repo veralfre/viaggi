@@ -1,7 +1,7 @@
 name: Prezzi voli e alloggi
 
 # Ogni due giorni cerca i prezzi dei voli e degli alloggi dei viaggi attivi
-# (src/viaggi.js), aggiunge le righe a public/<slug>/voli*.csv (uno per scenario) e alloggi.csv
+# (src/viaggi.js; a mano con l'input slug anche un viaggio non attivo, una volta), aggiunge le righe a public/<slug>/voli*.csv (uno per scenario) e alloggi.csv
 # e ripubblica il sito: un solo commit e un solo deploy per esecuzione.
 on:
   schedule:
@@ -17,6 +17,10 @@ on:
         type: choice
         options: [tutto, voli, alloggi]
         default: tutto
+      slug:
+        description: Solo questo viaggio, anche se non attivo (es. big-island-2027). Vuoto = tutti i viaggi attivi
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -36,20 +40,32 @@ jobs:
       changed: ${{ steps.commit.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
+      - name: Controlla lo slug
+        if: inputs.slug != ''
+        run: |
+          if ! [[ "$SLUG" =~ ^[a-z0-9-]+$ ]]; then
+            echo "::error::slug non valido (solo a-z, 0-9 e -)"
+            exit 1
+          fi
+        env:
+          SLUG: ${{ inputs.slug }}
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # Sullo schedule gli input sono vuoti: si cerca tutto.
+      # Sullo schedule gli input sono vuoti: si cerca tutto (solo i viaggi attivi).
+      # Lo slug passa da una variabile d'ambiente, mai interpolato nel comando.
       - name: Cerca i prezzi dei voli
         if: inputs.cosa != 'alloggi'
-        run: node scripts/voli.mjs ${{ inputs.calibra && '--calibra' || '' }}
+        run: node scripts/voli.mjs ${{ inputs.calibra && '--calibra' || '' }} ${SLUG:+--slug "$SLUG"}
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          SLUG: ${{ inputs.slug }}
       - name: Cerca i prezzi degli alloggi
         if: ${{ !cancelled() && inputs.cosa != 'voli' && !inputs.calibra }}
-        run: node scripts/alloggi.mjs
+        run: node scripts/alloggi.mjs ${SLUG:+--slug "$SLUG"}
         env:
           SERPAPI_KEY_ALLOGGI: ${{ secrets.SERPAPI_KEY_ALLOGGI }}
+          SLUG: ${{ inputs.slug }}
       - name: Salva lo storico
         id: commit
         if: ${{ !cancelled() }}

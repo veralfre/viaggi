@@ -4,7 +4,7 @@ Itinerari di viaggio pubblicati su GitHub Pages: https://veralfre.github.io/viag
 
 Home in React (Vite) che elenca i viaggi di `src/viaggi.js`. A ogni push su `main` il workflow `.github/workflows/deploy.yml` compila e pubblica il sito.
 
-Viaggi pubblicati: **Ovest 2027 breve** (`ovest-2027-short`, 20–29 luglio, Grand Teton e Yellowstone, da Jackson Hole a Bozeman), l'unico con i prezzi attivi, e **Ovest 2027** (`ovest-2027`, la versione lunga da Denver): voli e alloggi disattivati il 2026-10-29, la pagina resta pubblicata con lo storico dei prezzi e un rimando alla versione breve. Il campo facoltativo `nota` di `src/viaggi.js` aggiunge una riga alla scheda della home (es. «Versione lunga: prezzi non più aggiornati»).
+Viaggi pubblicati: **Big Island 2027** (`big-island-2027`, 17–28 febbraio, in due da Denver: Kona, Hawaiʻi Volcanoes, Mauna Kea, Waimea), in dollari e con i prezzi rilevati una volta sola (voli e alloggi `attivo: false`, vedi «Esecuzione manuale»); **Ovest 2027 breve** (`ovest-2027-short`, 20–29 luglio, Grand Teton e Yellowstone, da Jackson Hole a Bozeman), l'unico con i prezzi attivi, e **Ovest 2027** (`ovest-2027`, la versione lunga da Denver): voli e alloggi disattivati il 2026-10-29, la pagina resta pubblicata con lo storico dei prezzi e un rimando alla versione breve. Il campo facoltativo `nota` di `src/viaggi.js` aggiunge una riga alla scheda della home (es. «Versione lunga: prezzi non più aggiornati»).
 
 ```sh
 npm install
@@ -69,6 +69,11 @@ voli: {
 }
 ```
 
+Campi facoltativi del viaggio per valuta e mercato:
+
+- **`valuta`** (a livello di viaggio, default `'EUR'`): codice ISO della valuta. I bot cercano voli e case in quella valuta (`currency` di SerpApi; per Booking, se una struttura non dice la sua, vale quella del viaggio), la build la scrive in `viaggio.json` e la pagina mostra gli importi in quella valuta. `accesso`, `costi` e `carburante.prezzoLitro` vanno scritti nella stessa valuta. Big Island usa `'USD'`.
+- **`voli.gl`**: mercato di Google Flights (default `'it'`). Big Island usa `'us'`: si compra da Denver.
+
 Gli aeroporti di una tratta vanno in un'unica ricerca (Google Flights li raggruppa). Si cerca ogni coppia andata × ritorno (con il ritorno dopo l'andata). Il prezzo di queste ricerche è solo «a partire da»: Google mostra il prezzo dell'andata con il ritorno più economico possibile, che spesso non esiste davvero o arriva in un altro aeroporto. Per questo, **per ogni aeroporto di partenza**, lo script prende l'andata più economica da lì (tra tutte le coppie di date) e chiede i ritorni di quell'itinerario (`departure_token`): quello è il prezzo vero, andata e ritorno. Andata e ritorni di uno stesso follow-up hanno lo stesso numero nella colonna `gruppo`. Gli itinerari con ritorno in un aeroporto diverso da quello di partenza non si considerano (l'auto resterebbe all'altro aeroporto). Le date di andata già passate non si cercano più (e il budget scende di conseguenza); i viaggi con tutte le andate passate vengono saltati da soli; quando il viaggio è fatto, mettete comunque `attivo: false`. Possono essere attivi più viaggi insieme.
 
 ### Budget
@@ -104,6 +109,14 @@ Con `voli.alternative` lo stesso viaggio si confronta con altri aeroporti (nella
 gh workflow run voli.yml                 # una rilevazione subito, voli e alloggi
 gh workflow run voli.yml -f cosa=voli    # solo voli (oppure -f cosa=alloggi)
 gh workflow run voli.yml -f calibra=true # verifica se il prezzo di Google è totale o a persona (2 ricerche, non scrive, salta gli alloggi)
+gh workflow run voli.yml -f slug=big-island-2027  # un solo viaggio, anche se non attivo
+```
+
+Con l'input `slug` (in locale `--slug <slug>`, per `voli.mjs` e `alloggi.mjs`) si cerca **un solo viaggio, anche se ha `attivo: false`**, purché abbia date future: è la rilevazione una tantum di un viaggio che non si segue nel tempo. Costa le sue ricerche una volta sola (Big Island: 2 voli, 3 alloggi), fuori dal conto mensile dei viaggi attivi; il dry-run lo scrive («Esecuzione una tantum»), e i limiti (avviso sopra 220, stop sopra 250) valgono per quella sola esecuzione, non × 16. Il workflow accetta solo slug fatti di lettere minuscole, cifre e trattini. Lo schedule non passa `slug` e ignora i viaggi non attivi. Lo slug arriva al comando tramite una variabile d'ambiente, mai interpolato nello script del workflow. Per vedere il piano senza chiamate:
+
+```sh
+node scripts/voli.mjs --dry-run --slug big-island-2027     # 2 ricerche
+node scripts/alloggi.mjs --dry-run --slug big-island-2027  # 3 ricerche
 ```
 
 Lo script assume che il prezzo restituito sia il **totale** per tutti gli adulti e lo divide (`PREZZO_BASE` in `scripts/voli.mjs`). La calibrazione confronta la stessa ricerca con N adulti e con 1 adulto e dice se va cambiato.
@@ -143,7 +156,9 @@ Una riga per ogni opzione restituita, mai cancellata (lo storico cresce a ogni e
 
 ## Costo reale e accesso agli aeroporti
 
-Il costo mostrato in pagina è il **biglietto andata e ritorno verificato** più l'**accesso all'aeroporto**: un'auto da Bologna per i quattro che volano, andata, parcheggio per tutto il soggiorno e ritorno, diviso per quattro. Si confrontano solo itinerari che partono e tornano allo stesso aeroporto. Le stime stanno in `src/viaggi.js`, in `voli.accesso` (`auto` = carburante e pedaggi per una tratta, per l'auto intera; `parcheggio` = tutto il soggiorno): oggi MXP 57,50 €/persona, VCE 41,50 €, BLQ 0. I costi di accesso non finiscono nel CSV (che resta un dato di mercato grezzo): la build genera `/<slug>/viaggio.json` da `src/viaggi.js` (plugin `dati-viaggi` in `vite.config.js`, calcoli in `src/costi.js`), e la pagina lo legge accanto a sé. Non va creato a mano in `public/`: la build si ferma se lo trova.
+Il costo mostrato in pagina è il **biglietto andata e ritorno verificato** più l'**accesso all'aeroporto**: un'auto da Bologna per i quattro che volano, andata, parcheggio per tutto il soggiorno e ritorno, diviso per quattro. Si confrontano solo itinerari che partono e tornano allo stesso aeroporto. Le stime stanno in `src/viaggi.js`, in `voli.accesso` (`auto` = carburante e pedaggi per una tratta, per l'auto intera; `parcheggio` = tutto il soggiorno): oggi MXP 57,50 €/persona, VCE 41,50 €, BLQ 0. I costi di accesso non finiscono nel CSV (che resta un dato di mercato grezzo): la build genera `/<slug>/viaggio.json` da `src/viaggi.js` (plugin `dati-viaggi` in `vite.config.js`, calcoli in `src/costi.js`), e la pagina lo legge accanto a sé. Non va creato a mano in `public/`: la build si ferma se lo trova. Oltre ai dati per i conti contiene `valuta` (quella del viaggio) e `aggiornamento: { voli, alloggi }` (`true` se quella ricerca è attiva, `false` se i prezzi sono una rilevazione unica: la pagina lo dice invece di promettere aggiornamenti).
+
+Per Big Island l'accesso è il parcheggio a Denver con l'auto di casa: Pikes Peak lot, 10 $ al giorno per 11 giorni (tariffa 2025, da riverificare) = 110 $ per due, 55 $ a testa.
 
 ## Storico prezzi alloggi
 
@@ -167,8 +182,9 @@ alloggi: {
 ```
 
 - **Airbnb** filtra lato API: `room_type=entire_home`, `bedrooms` e `bathrooms` minimi. Il prezzo è quello di tutto il soggiorno.
-- **Booking.com** non ha filtri su camere e bagni: si chiede un'unica unità per sei (`rooms=1`) tra appartamenti e case vacanza (`property_types=201,220`) e lo script tiene solo le strutture che dichiarano almeno 3 camere e 2 bagni nella somma di `rooms[]`. Quelle che non li dichiarano vengono scartate.
+- **Booking.com** non ha filtri su camere e bagni: si chiede un'unica unità per sei (`rooms=1`) tra appartamenti e case vacanza (`property_types=201,220`, oppure i codici di `alloggi.tipi`: Big Island aggiunge 204 hotel, 208 B&B, 216 guest house e 221 lodge, perché a Volcano l'offerta è quasi tutta così) e lo script tiene solo le strutture che dichiarano almeno 3 camere e 2 bagni nella somma di `rooms[]`. Quelle che non li dichiarano vengono scartate.
 - **Vicino alla tappa:** con `centro: [lat, lon]` lo script calcola la distanza di ogni casa dalle sue coordinate (`gps_coordinates` di entrambe le fonti) e scarta quelle oltre `raggioKm` (della tappa, altrimenti `alloggi.raggioKm`, di default 25), con un avviso per fonte su quante ne ha scartate. Scarta anche le strutture senza coordinate, di entrambe le fonti (di norma ci sono sempre). Su Airbnb la ricerca è già limitata al riquadro attorno al centro (`map_bounds`, nord,est,sud,ovest, insieme a `q`). In pagina ogni scheda mostra «a X km da …». Serve dopo che per West Yellowstone era uscita una casa in Idaho e per Gardiner una in Nuova Zelanda.
+- **Unità per due:** con `monolocali: true` e `camere: 1` (Big Island) basta un'unità: su Booking i monolocali dichiarano 0 camere e le camere d'albergo, i B&B e i lodge spesso non dichiarano né camere né bagni, e non si scartano. Si scarta solo chi dichiara meno camere o bagni del minimo (per esempio il bagno in comune, 0 bagni).
 - Le tappe già iniziate non si cercano più.
 
 Chiave e **budget separati** dai voli: secret `SERPAPI_KEY_ALLOGGI`, 250 ricerche al mese. Ogni viaggio costa `tappe × fonti` ricerche per esecuzione: Ovest 2027 breve = 4 tappe (Jackson, West Yellowstone, Gardiner, Bozeman) × 2 fonti = 8 per esecuzione, × 16 = **128 al mese**; restano circa 15 esecuzioni manuali al mese.
@@ -216,11 +232,15 @@ costi: {
 }
 ```
 
-La build calcola la benzina (`km × litriPer100 / 100 × euroLitro`) e la mette in `viaggio.json` con il noleggio (che finisce tra gli extra, anche senza importo). Gli extra con `importo: null` restano «da definire» e fuori dalla somma, e il totale è marcato parziale finché manca qualcosa (tappe senza prezzo, ritorno non verificato, voli di chi ospita da rilevare, noleggio o extra da definire). Non compresi: pasti, attività e ingressi a pagamento, ESTA, assicurazione, bagaglio da stiva se non incluso, eventuali pulizie o tasse non comprese nel prezzo mostrato.
+Il prezzo al litro si scrive in `prezzoLitro`, nella valuta del viaggio (`euroLitro` è il vecchio nome, ancora accettato). La build calcola la benzina (`km × litriPer100 / 100 × prezzoLitro`) e la mette in `viaggio.json` con il noleggio (che finisce tra gli extra, anche senza importo). Gli extra con `importo: null` restano «da definire» e fuori dalla somma, e il totale è marcato parziale finché manca qualcosa (tappe senza prezzo, ritorno non verificato, voli di chi ospita da rilevare, noleggio o extra da definire). Non compresi: pasti, attività e ingressi a pagamento, ESTA, assicurazione, bagaglio da stiva se non incluso, eventuali pulizie o tasse non comprese nel prezzo mostrato.
+
+Con `coppie: 1` (Big Island) non c'è niente da dividere: la pagina mostra una sola colonna «Per noi due» con la quota a testa, il parcheggio a Denver al posto dell'accesso da Bologna, e gli extra della ricerca (tour, uscite in mare, parchi statali; gli ingressi ai parchi nazionali sono coperti dal pass America the Beautiful e non ci sono).
 
 ## Playlist del viaggio
 
 La sezione «Playlist del viaggio» della pagina mostra il player di Spotify (quando la playlist esiste) e sotto la scaletta, divisa per tragitto in macchina. La scaletta sta in `src/playlist.js` (un blocco per tragitto, brani come `[artista, titolo, genere]`); l'ID della playlist Spotify sta in `src/spotify.json`. La build mette entrambi in `/<slug>/viaggio.json`, che la pagina legge: senza ID valido mostra solo la scaletta.
+
+Big Island ha una playlist sua (`big-island-2027`, quattro tragitti, genere nuovo `isole`), dopo le due dell'Ovest in `src/playlist.js` (lo script senza `--slug` usa la prima voce). Senza ID in `src/spotify.json` la pagina mostra solo la scaletta: `SPOTIFY_CLIENT_ID=<client id> node scripts/spotify.mjs --slug big-island-2027` la crea, e i brani non trovati si correggono in `src/playlist.js`.
 
 Un viaggio può usare la playlist di un altro con `playlistDi: '<slug>'` in `src/viaggi.js`: la build prende l'ID di quello slug. La versione breve fa così (`playlistDi: 'ovest-2027'`): stessa playlist Spotify, e in pagina una scaletta che è un sottoinsieme dei blocchi del lungo (i tragitti nei parchi, con i giorni del suo programma). `scripts/spotify.mjs --slug ovest-2027-short` si rifiuta di creare una playlist e rimanda a `--slug ovest-2027`.
 

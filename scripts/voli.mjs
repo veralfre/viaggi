@@ -9,7 +9,7 @@
 //
 //   node scripts/voli.mjs                 esecuzione reale (serve SERPAPI_KEY)
 //   node scripts/voli.mjs --dry-run       piano e budget, senza chiamate
-//   node scripts/voli.mjs --slug <slug>   solo quel viaggio
+//   node scripts/voli.mjs --slug <slug>   solo quel viaggio, anche se non attivo (rilevazione una tantum)
 //   node scripts/voli.mjs --calibra       verifica se il prezzo è totale o a persona (2 ricerche, non scrive)
 //   node scripts/voli.mjs --fixture <dir> [--fixture-scenario vuoto|chiave] [--out <dir>]
 //                                         usa risposte salvate al posto di SerpApi
@@ -20,7 +20,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { voliOspiti } from '../src/costi.js'
+import { valutaDi, voliOspiti } from '../src/costi.js'
 import { viaggi as VIAGGI } from '../src/viaggi.js'
 import {
   ErroreFatale,
@@ -244,18 +244,48 @@ export function scriviCsv(file, rows) {
 /** Nome di uno scenario nei messaggi: lo slug, con l'id tra parentesi quadre per le alternative. */
 const nomeScenario = (v, s) => v.slug + (s.id ? ' [' + s.id + ']' : '')
 
-function selezione(viaggi, oggi, slug, log) {
+/**
+ * Viaggi da cercare. Senza slug: quelli attivi con date future. Con slug: quel viaggio
+ * anche se `attivo: false` (rilevazione una tantum), purché abbia i voli e una data futura.
+ */
+export function selezione(viaggi, oggi, slug, log = logConsole) {
+  if (slug) {
+    const v = viaggi.find((x) => x.slug === slug)
+    if (!v) {
+      log.info(slug + ': nessun viaggio con questo slug')
+      return []
+    }
+    if (!v.voli) {
+      log.info(slug + ': il viaggio non ha voli da cercare')
+      return []
+    }
+    if (!v.voli.andata.date.some((d) => d >= oggi)) {
+      log.info(slug + ': date di andata già passate, salto')
+      return []
+    }
+    if (v.voli.attivo !== true) log.info(slug + ': non attivo, cercato una volta perché richiesto con --slug')
+    return [v]
+  }
   for (const v of viaggi) {
     if (v.voli?.attivo === true && !v.voli.andata.date.some((d) => d >= oggi)) {
       log.info(v.slug + ': date di andata già passate, salto')
     }
   }
-  let trips = attivi(viaggi, oggi)
-  if (slug) trips = trips.filter((v) => v.slug === slug)
-  return trips
+  return attivi(viaggi, oggi)
 }
 
 function controllaBudget(trips, oggi, log) {
+  // Solo viaggi non attivi (scelti con --slug): una rilevazione una tantum, il limite vale per
+  // questa esecuzione e non per 16 esecuzioni al mese.
+  if (trips.length && trips.every((v) => v.voli?.attivo !== true)) {
+    const n = stimaBudget(trips, oggi).perEsecuzione
+    const u = { perEsecuzione: n, alMese: n, livello: n > LIMITE_MESE ? 'errore' : n > SOGLIA_AVVISO ? 'avviso' : 'ok' }
+    const msg = 'Esecuzione una tantum: ' + n + ' ricerche (fuori dal budget mensile dei viaggi attivi, limite ' + LIMITE_MESE + ')'
+    if (u.livello === 'errore') log.error(msg + ': troppe, riduci le date')
+    else if (u.livello === 'avviso') log.warn(msg + ': vicino al limite')
+    else log.info(msg)
+    return u
+  }
   const b = stimaBudget(trips, oggi)
   const msg =
     'Budget SerpApi: ' + b.perEsecuzione + ' ricerche per esecuzione, circa ' + b.alMese +
@@ -267,13 +297,13 @@ function controllaBudget(trips, oggi, log) {
 }
 
 /** Esecuzione per uno scenario (`nome` per i messaggi): ritorna { rows } oppure { errore }. */
-async function cercaScenario(nome, voli, run, { apiKey, fetchImpl, ritardoRetry, log }) {
+async function cercaScenario(nome, voli, run, { apiKey, fetchImpl, ritardoRetry, log, valuta = VALUTA, gl }) {
   const v = { slug: nome, voli }
   const lista = coppie(v.voli, run.slice(0, 10))
   const trovate = []
   let fallite = 0
   for (const c of lista) {
-    const r = await cerca(parametri(v.voli, c, { api_key: apiKey }), { fetchImpl, ritardoRetry })
+    const r = await cerca(parametri(v.voli, c, { api_key: apiKey, currency: valuta, gl }), { fetchImpl, ritardoRetry })
     if (r.stato === 'fallito') {
       fallite++
       log.warn(v.slug + ' ' + c.andata + ' → ' + c.ritorno + ': ricerca fallita (' + r.motivo + ')')
@@ -304,7 +334,7 @@ async function cercaScenario(nome, voli, run, { apiKey, fetchImpl, ritardoRetry,
     let opts = []
     let motivo = ''
     try {
-      const r = await cerca(parametri(v.voli, scelta.coppia, { api_key: apiKey, departure_token: scelta.token }), {
+      const r = await cerca(parametri(v.voli, scelta.coppia, { api_key: apiKey, departure_token: scelta.token, currency: valuta, gl }), {
         fetchImpl,
         ritardoRetry,
       })
@@ -329,14 +359,14 @@ async function cercaScenario(nome, voli, run, { apiKey, fetchImpl, ritardoRetry,
   const adulti = v.voli.adulti
   const rows = trovate.flatMap((t) =>
     righe({
-      run, tipo: 'andata', coppia: t.coppia, adulti, opts: t.opts,
+      run, tipo: 'andata', coppia: t.coppia, adulti, valuta, opts: t.opts,
       segna: (o) => (gruppoDi.has(o) ? { migliore: true, gruppo: gruppoDi.get(o) } : {}),
     }),
   )
   for (const r of ritorni) {
     rows.push(
       ...righe({
-        run, tipo: 'ritorno', coppia: r.coppia, adulti, opts: r.opts,
+        run, tipo: 'ritorno', coppia: r.coppia, adulti, valuta, opts: r.opts,
         segna: (o) => ({ migliore: o === r.migliore, gruppo: r.gruppo }),
       }),
     )
@@ -350,7 +380,7 @@ async function cercaScenario(nome, voli, run, { apiKey, fetchImpl, ritardoRetry,
     let opts = []
     let motivo = ''
     try {
-      const r = await cerca(parametriOspiti(ro, data, { api_key: apiKey }), { fetchImpl, ritardoRetry })
+      const r = await cerca(parametriOspiti(ro, data, { api_key: apiKey, currency: valuta, gl }), { fetchImpl, ritardoRetry })
       opts = r.stato === 'fallito' ? [] : opzioni(r.json)
       motivo = r.motivo || 'nessuna opzione'
     } catch (e) {
@@ -365,7 +395,7 @@ async function cercaScenario(nome, voli, run, { apiKey, fetchImpl, ritardoRetry,
     const migliore = piuEconomica(opts)
     rows.push(
       ...righe({
-        run, tipo: ro.tipo, coppia: { andata: data, ritorno: '' }, adulti: ro.adulti, opts,
+        run, tipo: ro.tipo, coppia: { andata: data, ritorno: '' }, adulti: ro.adulti, valuta, opts,
         segna: (o) => ({ migliore: o === migliore }),
       }),
     )
@@ -394,7 +424,7 @@ export async function esegui({
     const oggi = run.slice(0, 10)
     const trips = selezione(viaggi, oggi, slug, log)
     if (!trips.length) {
-      log.info('Nessun viaggio attivo' + (slug ? ' con slug ' + slug : '') + ': niente da cercare.')
+      log.info((slug ? 'Nessun viaggio da cercare con slug ' + slug : 'Nessun viaggio attivo') + ': niente da cercare.')
       return slug ? 1 : 0
     }
 
@@ -426,8 +456,9 @@ export async function esegui({
     if (calibra) {
       const v = trips[0]
       const c = coppie(v.voli, oggi)[0]
+      const valuta = valutaDi(v)
       const minimo = async (adults) => {
-        const r = await cerca(parametri(v.voli, c, { api_key: apiKey, adults }), { fetchImpl, ritardoRetry })
+        const r = await cerca(parametri(v.voli, c, { api_key: apiKey, adults, currency: valuta, gl: v.voli.gl }), { fetchImpl, ritardoRetry })
         const o = r.stato === 'fallito' ? null : piuEconomica(opzioni(r.json))
         if (!o) throw new ErroreFatale('calibrazione: nessuna opzione per ' + adults + ' adulti (' + (r.motivo || '') + ')')
         return o.prezzo
@@ -436,8 +467,8 @@ export async function esegui({
       const p1 = await minimo(1)
       const rapporto = pN / p1
       log.info(
-        v.slug + ' ' + c.andata + ' → ' + c.ritorno + ': ' + v.voli.adulti + ' adulti ' + pN + ' ' + VALUTA +
-          ', 1 adulto ' + p1 + ' ' + VALUTA + ', rapporto ' + rapporto.toFixed(2),
+        v.slug + ' ' + c.andata + ' → ' + c.ritorno + ': ' + v.voli.adulti + ' adulti ' + pN + ' ' + valuta +
+          ', 1 adulto ' + p1 + ' ' + valuta + ', rapporto ' + rapporto.toFixed(2),
       )
       log.info(
         rapporto >= 2
@@ -460,7 +491,7 @@ export async function esegui({
         }
         let esito
         try {
-          esito = await cercaScenario(nome, s.voli, run, { apiKey, fetchImpl, ritardoRetry, log })
+          esito = await cercaScenario(nome, s.voli, run, { apiKey, fetchImpl, ritardoRetry, log, valuta: valutaDi(v), gl: v.voli.gl })
         } catch (e) {
           // Richiesta rifiutata (HTTP 400): riguarda solo questo scenario. Chiave e limite valgono per tutti.
           if (!(e instanceof ErroreFatale) || !/HTTP 400/.test(e.message)) throw e

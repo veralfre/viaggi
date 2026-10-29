@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, describe, test } from 'node:test'
@@ -290,5 +290,122 @@ describe('esecuzione completa con fixture', () => {
     })
     assert.equal(r.status, 0, r.stderr)
     assert.match(r.stdout, /8 ricerche per esecuzione, circa 128 al mese/)
+  })
+})
+
+describe('Big Island: viaggio non attivo, rilevazione una tantum con --slug', () => {
+  const big = viaggi.find((v) => v.slug === 'big-island-2027')
+  const dir = mkdtempSync(path.join(tmpdir(), 'alloggi-big-'))
+  after(() => rmSync(dir, { recursive: true, force: true }))
+  const base = { viaggi, apiKey: 'fixture', ritardoRetry: 0, now: '2026-10-29T05:17:00Z' }
+  const col = (x, k) => x[HEADER.indexOf(k)]
+  const cli = (...args) =>
+    spawnSync(process.execPath, [path.join(QUI, 'alloggi.mjs'), '--dry-run', ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, SERPAPI_KEY_ALLOGGI: '', ALLOGGI_NOW: '2026-10-29T05:17:00Z' },
+    })
+
+  test('spento, solo Booking, tre tappe consecutive di 4, 3 e 3 notti: 3 ricerche', () => {
+    assert.equal(big.alloggi.attivo, false)
+    assert.deepEqual(attivi(viaggi, '2026-10-29').map((v) => v.slug), ['ovest-2027-short'])
+    assert.deepEqual(stimaBudget([big], '2026-10-29'), { perEsecuzione: 3, alMese: 48, livello: 'ok' })
+    const t = big.alloggi.tappe
+    assert.deepEqual(t.map((x) => x.id), ['kona', 'volcano', 'kohala'])
+    for (let i = 1; i < t.length; i++) assert.equal(t[i].dal, t[i - 1].al)
+    assert.equal(t[0].dal, '2027-02-17')
+    assert.equal(t.at(-1).al, '2027-02-27')
+    // la terza base è Waimea
+    assert.equal(t[2].vicino, 'Waimea')
+    assert.ok(distanzaKm(t[2].centro, [20.0234, -155.6717]) < 1)
+  })
+
+  test('CLI --dry-run senza slug: il viaggio non conta', () => {
+    const r = cli()
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /8 ricerche per esecuzione, circa 128 al mese/)
+    assert.doesNotMatch(r.stdout, /big-island/)
+  })
+
+  test('CLI --dry-run --slug big-island-2027: cercato una volta, 3 ricerche', () => {
+    const r = cli('--slug', 'big-island-2027')
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /big-island-2027: non attivo, cercato una volta/)
+    assert.match(r.stdout, /3 tappe × 1 fonti \(booking\) = 3 ricerche/)
+    assert.match(r.stdout, /kona: .*2027-02-17 → 2027-02-21 \(4 notti, entro 15 km/)
+    assert.match(r.stdout, /volcano: .*\(3 notti, entro 15 km/)
+    assert.match(r.stdout, /kohala: .*\(3 notti, entro 20 km/)
+    assert.match(r.stdout, /Esecuzione una tantum alloggi: 3 ricerche/)
+    assert.doesNotMatch(r.stdout, /al mese/)
+    assert.equal(cli('--slug', 'inesistente').status, 1)
+  })
+
+  test('monolocali: con monolocali e 1 camera non si scartano gli studio con 0 camere', () => {
+    const j = {
+      properties: [
+        { name: 'Studio', extracted_price: 600, link: 'https://www.booking.com/hotel/us/a.html', rooms: [{ type: 'Studio', bedrooms: 0, bathrooms: 1 }] },
+        { name: 'Studio senza camere', extracted_price: 610, link: 'https://www.booking.com/hotel/us/b.html', rooms: [{ type: 'Studio Apartment', bathrooms: 1 }] },
+        { name: 'Bilocale', extracted_price: 700, link: 'https://www.booking.com/hotel/us/c.html', rooms: [{ type: 'Apartment', bedrooms: 1, bathrooms: 1 }] },
+        { name: 'Camera d’albergo', extracted_price: 500, link: 'https://www.booking.com/hotel/us/d.html', rooms: [{ type: 'Deluxe King Room' }] },
+        { name: 'Senza rooms', extracted_price: 450, link: 'https://www.booking.com/hotel/us/e.html' },
+        { name: 'Bagno in comune', extracted_price: 300, link: 'https://www.booking.com/hotel/us/f.html', rooms: [{ type: 'Double Room', bedrooms: 1, bathrooms: 0 }] },
+      ],
+    }
+    const m = { notti: 4, camere: 1, bagni: 1, valuta: 'USD' }
+    assert.deepEqual(strutture('booking', j, { ...m, monolocali: true }).map((x) => x.nome), [
+      'Studio', 'Studio senza camere', 'Bilocale', 'Camera d’albergo', 'Senza rooms',
+    ])
+    assert.deepEqual(strutture('booking', j, m).map((x) => x.nome), ['Bilocale'])
+    // con più camere richieste il monolocale non basta
+    assert.deepEqual(strutture('booking', j, { ...m, camere: 2, monolocali: true }).map((x) => x.nome), [])
+    assert.equal(big.alloggi.monolocali, true)
+  })
+
+  test('tipi di struttura Booking: per Big Island anche hotel, B&B, guest house e lodge; Ovest invariato', () => {
+    const t = big.alloggi.tappe[1]
+    assert.equal(parametri('booking', big.alloggi, t).get('property_types'), '201,220,204,208,216,221,218')
+    assert.equal(parametri('booking', breve.alloggi, breve.alloggi.tappe[0]).get('property_types'), '201,220')
+  })
+
+  test('una tantum: limite sulle ricerche dell’esecuzione, non × 16', async () => {
+    const tappeFinte = Array.from({ length: 20 }, (_, i) => ({ id: 't' + i, nome: 'T', q: 'X', dal: '2027-02-17', al: '2027-02-18' }))
+    const v = { slug: 'tanti', alloggi: { ...big.alloggi, tappe: tappeFinte } }
+    const log = silenzio()
+    assert.equal(await esegui({ ...base, viaggi: [v], slug: 'tanti', dryRun: true, log }), 0)
+    assert.match(log.msgs.info.join('\n'), /Esecuzione una tantum alloggi: 20 ricerche/)
+    assert.deepEqual(log.msgs.error, [])
+    const troppi = { slug: 'troppi', alloggi: { ...big.alloggi, tappe: Array.from({ length: 251 }, (_, i) => ({ ...tappeFinte[0], id: 'x' + i })) } }
+    const l2 = silenzio()
+    assert.equal(await esegui({ ...base, viaggi: [troppi], slug: 'troppi', dryRun: true, log: l2 }), 1)
+  })
+
+  test('valuta del viaggio come ripiego per Booking senza currency', () => {
+    const j = { properties: [{ name: 'A', extracted_price: 600, rooms: [{ bedrooms: 1, bathrooms: 1 }] }] }
+    assert.deepEqual(strutture('booking', j, { notti: 4, camere: 1, bagni: 1, valuta: 'USD' }).map((x) => x.valuta), ['USD'])
+    assert.deepEqual(strutture('booking', j, { notti: 4, camere: 1, bagni: 1 }).map((x) => x.valuta), ['EUR'])
+  })
+
+  test('con slug: solo Booking in dollari, solo big-island-2027/alloggi.csv', async () => {
+    const d = mkdtempSync(path.join(dir, 's-'))
+    const url = []
+    const f0 = fetchFixture(FIXTURE)
+    // Fixture Booking senza `currency` e con camere 1 / bagni 1: la valuta viene dal viaggio.
+    const fetchImpl = async (u) => {
+      url.push(new URL(u).searchParams)
+      const r = await f0(u)
+      const corpo = await r.json()
+      for (const o of corpo.properties ?? []) {
+        delete o.currency
+        o.rooms = [{ ...o.rooms?.[0], bedrooms: 1, bathrooms: 1 }]
+      }
+      return { ...r, json: async () => corpo }
+    }
+    assert.equal(await esegui({ ...base, slug: 'big-island-2027', fetchImpl, outDir: d, log: silenzio() }), 0)
+    assert.equal(url.length, 3)
+    assert.ok(url.every((p) => p.get('engine') === 'booking' && p.get('currency') === 'USD' && p.get('adults') === '2' && p.get('rooms') === '1'))
+    assert.deepEqual(url.map((p) => p.get('q')), big.alloggi.tappe.map((t) => t.q))
+    assert.deepEqual(readdirSync(d), ['big-island-2027'])
+    const rows = parseCSV(readFileSync(path.join(d, 'big-island-2027', 'alloggi.csv'), 'utf8')).slice(1)
+    assert.ok(rows.length > 0)
+    assert.ok(rows.every((x) => col(x, 'valuta') === 'USD' && col(x, 'fonte') === 'booking'))
   })
 })

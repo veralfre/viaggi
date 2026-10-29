@@ -18,9 +18,74 @@
 //   il suo public/<slug>/voli-<id>.csv. `rientroOspiti` è la vecchia forma (una tratta).
 // - `playlistDi`: slug del viaggio di cui si usa la playlist Spotify (src/spotify.json).
 // - `nota`: riga facoltativa mostrata nella scheda della home.
+// - `valuta`: codice ISO della valuta del viaggio (default 'EUR'): i bot cercano in
+//   questa valuta e la pagina mostra gli importi in questa valuta; `accesso`, `costi`
+//   e `carburante.prezzoLitro` vanno scritti nella stessa valuta (`euroLitro` è il vecchio
+//   nome, ancora accettato). `voli.gl`: mercato di Google Flights (default 'it').
 // Date e tappe già passate vengono saltate. I due budget di ricerche (voli e
-// alloggi) sono separati e condivisi tra i viaggi attivi.
+// alloggi) sono separati e condivisi tra i viaggi attivi. Un viaggio con
+// `attivo: false` non entra mai nello schedule, ma `--slug <slug>` lo cerca lo
+// stesso, una volta (workflow «Prezzi voli e alloggi», input `slug`).
 export const viaggi = [
+  {
+    slug: 'big-island-2027',
+    titolo: 'Dieci giorni sulla Big Island',
+    date: '17–28 febbraio 2027',
+    luoghi: 'Kona, Hawaiʻi Volcanoes, Mauna Kea, Kohala',
+    // Viaggio in dollari: i bot cercano in USD e la pagina mostra in USD.
+    valuta: 'USD',
+    // Niente ricerca periodica: una sola rilevazione lanciata a mano con --slug (workflow, input slug).
+    voli: {
+      attivo: false,
+      adulti: 2,
+      andata: { da: ['DEN'], a: ['KOA'], date: ['2027-02-17'] },
+      ritorno: { da: ['KOA'], a: ['DEN'], date: ['2027-02-27'] }, // volo notturno, arrivo domenica 28
+      gl: 'us', // Google Flights dal mercato USA: si parte da Denver
+      // Auto propria fino a DEN (benzina non stimata) + Pikes Peak lot 10 $/giorno × 11 giorni (tariffa 2025, da riverificare).
+      accesso: { DEN: { auto: 0, parcheggio: 110 } },
+    },
+    alloggi: {
+      attivo: false,
+      adulti: 2,
+      camere: 1,
+      bagni: 1,
+      // Per due basta un'unità: monolocali (0 camere) e camere d'albergo senza conteggio non si scartano.
+      monolocali: true,
+      fonti: ['booking'],
+      // Booking (codici SerpApi): appartamenti, case vacanza, hotel, B&B, guest house, lodge, inn (a Volcano sono quasi tutti B&B, lodge e inn).
+      tipi: ['201', '220', '204', '208', '216', '221', '218'],
+      paese: 'us',
+      raggioKm: 15,
+      tappe: [
+        { id: 'kona', nome: 'Kona', q: 'Kailua-Kona, Hawaii, USA', centro: [19.64, -155.9969], dal: '2027-02-17', al: '2027-02-21' },
+        {
+          id: 'volcano', nome: 'Volcano', q: 'Volcano, Hawaii, USA', centro: [19.4294, -155.2367], dal: '2027-02-21', al: '2027-02-24',
+          nota: 'Notti flessibili: se il vulcano si sveglia mentre siamo a Kona si spostano, quindi solo con cancellazione gratuita.',
+        },
+        {
+          // Kamuela è il nome postale di Waimea sulla Big Island (Waimea da solo è anche su Kauaʻi e Oʻahu).
+          id: 'kohala', nome: 'Waimea', q: 'Kamuela, Hawaii, USA', centro: [20.0234, -155.6717], raggioKm: 20,
+          vicino: 'Waimea', dal: '2027-02-24', al: '2027-02-27',
+          nota: 'Base a Waimea, in quota tra le due coste: entro 20 km ci sono anche Waikoloa Village e Kawaihae, più caldi e asciutti.',
+        },
+      ],
+    },
+    costi: {
+      coppie: 1,
+      noleggio: { voce: 'Noleggio auto a Kona (KOA), 17–27 febbraio, ritiro e consegna in aeroporto', importo: null },
+      // km da OSRM (somma dei giorni); auto media ~8 l/100 km; AAA Hilo 5,69 $/gal (1/10/2026) ≈ 1,50 $/l.
+      carburante: { km: 820, litriPer100: 8, prezzoLitro: 1.5 },
+      // Prezzi della ricerca 2026-10-29; tasse stimate con la GET massima 4,712%; mance escluse.
+      // Ingressi ai parchi nazionali esclusi: coperti dal pass America the Beautiful.
+      extra: [
+        { voce: 'Tour in vetta al Mauna Kea, Hawaiʻi Forest & Trail (2 × 315 $ + tasse)', importo: 660 },
+        { voce: 'Mante di notte, Sea Paradise (2 × 130 $ + tasse)', importo: 272 },
+        { voce: 'Balene, Body Glove Kanoa II (2 × 139,99 $ + tasse)', importo: 293 },
+        { voce: 'Parchi statali per non residenti: ʻAkaka Falls e una spiaggia (5 $ a testa + 10 $ l’auto, ciascuno)', importo: 40 },
+        { voce: 'Amex Premium Car Rental Protection (per noleggio, al massimo)', importo: 25 },
+      ],
+    },
+  },
   {
     slug: 'ovest-2027-short',
     titolo: 'Dieci giorni nell’Ovest, in sei',

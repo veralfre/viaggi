@@ -93,7 +93,30 @@ test('scaletta: almeno 150 brani, nessun doppione, blocchi sui tragitti in macch
   for (const b of ovest.blocchi) for (const [a, t, g] of b.brani) assert.ok(a && t && GENERI[g], a + ' ' + t + ' ' + g)
   // giorni con tragitti in comune nel programma: 2, 4, 5, 8, 12, 14
   assert.deepEqual(ovest.blocchi.map((b) => b.giorno), [2, 4, 5, 8, 12, 14])
-  assert.deepEqual(Object.keys(GENERI).filter((g) => tutti.length && ovest.blocchi.some((b) => b.brani.some((x) => x[2] === g))), Object.keys(GENERI))
+  // ogni genere usato è in GENERI, e tra tutte le playlist ogni genere di GENERI compare
+  for (const pl of Object.values(playlist)) for (const b of pl.blocchi) for (const x of b.brani) assert.ok(GENERI[x[2]], x.join(' '))
+  const usati = new Set(Object.values(playlist).flatMap((pl) => pl.blocchi.flatMap((b) => b.brani.map((x) => x[2]))))
+  assert.deepEqual(Object.keys(GENERI).filter((g) => usati.has(g)), Object.keys(GENERI))
+  assert.ok(Object.keys(GENERI).filter((g) => g !== 'isole').every((g) => ovest.blocchi.some((b) => b.brani.some((x) => x[2] === g))))
+})
+
+test('Big Island: playlist nuova dopo quelle dell’Ovest, quattro tragitti, almeno 40 brani senza doppioni', () => {
+  const big = playlist['big-island-2027']
+  assert.equal(Object.keys(playlist)[0], 'ovest-2027')
+  assert.deepEqual(big.blocchi.map((b) => [b.id, b.giorno]), [['arrivo', 1], ['sud', 5], ['hamakua', 8], ['ultimo', 11]])
+  for (const b of big.blocchi) {
+    assert.ok(b.giorno >= 1 && b.giorno <= 11)
+    for (const [a, t, g] of b.brani) assert.ok(a && t && GENERI[g], a + ' ' + t + ' ' + g)
+  }
+  const tutti = brani(big)
+  assert.ok(tutti.length >= 40, String(tutti.length))
+  const chiavi = tutti.map((b) => normalizza(b.artista + ' ' + b.titolo))
+  assert.equal(new Set(chiavi).size, chiavi.length)
+  assert.equal(playlistDi('big-island-2027'), null)
+  const r = spawnSync(process.execPath, [path.join(QUI, 'spotify.mjs'), '--dry-run', '--slug', 'big-island-2027'], { encoding: 'utf8', env: { ...process.env, SPOTIFY_CLIENT_ID: '' } })
+  assert.equal(r.status, 0, r.stderr)
+  // senza ID in src/spotify.json «verrà creata una playlist nuova», dopo il primo giro l’ID salvato
+  assert.match(r.stdout, /ID salvato: /)
 })
 
 test('datiPlaylist: ID accettato solo se valido', () => {

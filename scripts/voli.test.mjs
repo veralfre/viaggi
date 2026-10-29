@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, describe, test } from 'node:test'
@@ -540,5 +540,90 @@ describe('viaggio breve: scenari e voli di chi ospita', () => {
     assert.equal(await esegui({ ...base, viaggi: [v], outDir: d, log }), 0)
     assert.equal(existsSync(path.join(d, 'ovest-2027-short', 'voli-slc.csv')), false)
     assert.match(log.msgs.info.join('\n'), /\[slc\]: date di andata già passate/)
+  })
+})
+
+describe('Big Island: viaggio non attivo, rilevazione una tantum con --slug', () => {
+  const big = viaggi.find((v) => v.slug === 'big-island-2027')
+  const dir = mkdtempSync(path.join(tmpdir(), 'voli-big-'))
+  after(() => rmSync(dir, { recursive: true, force: true }))
+  const base = { viaggi, apiKey: 'fixture', ritardoRetry: 0, now: '2026-10-29T05:17:00Z' }
+  const col = (x, k) => x[HEADER.indexOf(k)]
+  const cli = (...args) =>
+    spawnSync(process.execPath, [path.join(QUI, 'voli.mjs'), '--dry-run', ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, SERPAPI_KEY: '', VOLI_NOW: '2026-10-29T05:17:00Z' },
+    })
+
+  test('spento: fuori dagli attivi, 2 ricerche se selezionato (1 coppia + 1 ritorno)', () => {
+    assert.equal(big.voli.attivo, false)
+    assert.deepEqual(attivi(viaggi, '2026-10-29').map((v) => v.slug), ['ovest-2027-short'])
+    assert.deepEqual(stimaBudget([big], '2026-10-29'), { perEsecuzione: 2, alMese: 32, livello: 'ok' })
+  })
+
+  test('CLI --dry-run senza slug: il viaggio non conta', () => {
+    const r = cli()
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /13 ricerche per esecuzione, circa 208 al mese/)
+    assert.doesNotMatch(r.stdout, /big-island/)
+  })
+
+  test('CLI --dry-run --slug big-island-2027: cercato una volta, 2 ricerche', () => {
+    const r = cli('--slug', 'big-island-2027')
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /big-island-2027: non attivo, cercato una volta/)
+    assert.match(r.stdout, /big-island-2027 \(voli\.csv\): 2 adulti, DEN → KOA \/ KOA → DEN, .* = 2 ricerche/)
+    assert.match(r.stdout, /Esecuzione una tantum: 2 ricerche/)
+    assert.doesNotMatch(r.stdout, /al mese/)
+    assert.doesNotMatch(r.stdout, /ovest-2027/)
+  })
+
+  test('una tantum: limite sulle ricerche dell’esecuzione, non × 16', async () => {
+    const date = Array.from({ length: 20 }, (_, i) => '2027-03-' + String(i + 1).padStart(2, '0'))
+    const v = { slug: 'tanti', voli: { ...big.voli, ritorno: { ...big.voli.ritorno, date: ['2027-04-01'] }, andata: { ...big.voli.andata, date } } }
+    assert.equal(stimaBudget([v], '2026-10-29').perEsecuzione, 21)
+    const log = silenzio()
+    assert.equal(await esegui({ ...base, viaggi: [v], slug: 'tanti', dryRun: true, log }), 0)
+    assert.match(log.msgs.info.join('\n'), /Esecuzione una tantum: 21 ricerche/)
+    assert.deepEqual([log.msgs.warn, log.msgs.error], [[], []])
+  })
+
+  test('CLI --dry-run --slug inesistente: codice 1', () => {
+    const r = cli('--slug', 'inesistente')
+    assert.equal(r.status, 1)
+    assert.match(r.stdout, /inesistente: nessun viaggio con questo slug/)
+  })
+
+  test('con slug: solo big-island-2027/voli.csv, in dollari dal mercato USA', async () => {
+    const d = mkdtempSync(path.join(dir, 's-'))
+    const url = []
+    const f0 = fetchFixture(FIXTURE)
+    const fetchImpl = async (u) => {
+      url.push(new URL(u).searchParams)
+      return f0(u)
+    }
+    assert.equal(await esegui({ ...base, slug: 'big-island-2027', fetchImpl, outDir: d, log: silenzio() }), 0)
+    assert.deepEqual(readdirSync(d), ['big-island-2027'])
+    assert.deepEqual(readdirSync(path.join(d, 'big-island-2027')), ['voli.csv'])
+    assert.ok(url.length >= 1 && url.length <= 2)
+    assert.ok(url.every((p) => p.get('currency') === 'USD' && p.get('gl') === 'us' && p.get('adults') === '2'), String(url))
+    const rows = parseCSV(readFileSync(path.join(d, 'big-island-2027', 'voli.csv'), 'utf8')).slice(1)
+    assert.ok(rows.length > 0)
+    assert.ok(rows.every((x) => col(x, 'valuta') === 'USD' && col(x, 'adulti') === '2'))
+  })
+
+  test('senza slug sugli stessi viaggi: niente KOA, Ovest ancora in euro dal mercato italiano', async () => {
+    const d = mkdtempSync(path.join(dir, 'n-'))
+    const url = []
+    const f0 = fetchFixture(FIXTURE)
+    const fetchImpl = async (u) => {
+      url.push(new URL(u).searchParams)
+      return f0(u)
+    }
+    assert.equal(await esegui({ ...base, fetchImpl, outDir: d, log: silenzio() }), 0)
+    assert.ok(url.length > 0)
+    assert.ok(url.every((p) => !p.toString().includes('KOA')))
+    assert.ok(url.every((p) => p.get('currency') === 'EUR' && p.get('gl') === 'it'))
+    assert.equal(existsSync(path.join(d, 'big-island-2027')), false)
   })
 })

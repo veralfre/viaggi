@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { accessoPersona, carburante, costoAccesso, datiPagina, notti, voliOspiti } from '../src/costi.js'
+import { accessoPersona, carburante, costoAccesso, datiPagina, notti, valutaDi, voliOspiti } from '../src/costi.js'
+import { GENERI, playlist } from '../src/playlist.js'
 import { viaggi } from '../src/viaggi.js'
 
 const ovest = viaggi.find((v) => v.slug === 'ovest-2027')
@@ -24,6 +25,46 @@ test('carburante', () => {
   assert.deepEqual(carburante(c, 1100), { km: 1100, litri: 138, importo: 116.88 })
   assert.equal(carburante(null), null)
   assert.equal(carburante({ km: 100 }), null)
+  // prezzoLitro è il nome nuovo (nella valuta del viaggio), euroLitro resta accettato
+  assert.deepEqual(carburante({ km: 2300, litriPer100: 12.5, prezzoLitro: 0.85 }), carburante(c))
+})
+
+test('valutaDi: codice ISO del viaggio, altrimenti EUR', () => {
+  assert.equal(valutaDi({ valuta: 'USD' }), 'USD')
+  assert.equal(valutaDi({}), 'EUR')
+  assert.equal(valutaDi({ valuta: '$' }), 'EUR')
+  assert.equal(valutaDi(undefined), 'EUR')
+  assert.equal(datiPagina(ovest).valuta, 'EUR')
+  assert.deepEqual(datiPagina(breve).aggiornamento, { voli: true, alloggi: true })
+})
+
+test('datiPagina di Big Island: dollari, una coppia, rilevazione unica, 10 notti in tre tappe', () => {
+  const big = viaggi.find((v) => v.slug === 'big-island-2027')
+  assert.equal(viaggi[0], big)
+  const d = datiPagina(big, { playlist: playlist[big.slug], generi: GENERI })
+  assert.equal(d.valuta, 'USD')
+  assert.deepEqual(d.aggiornamento, { voli: false, alloggi: false })
+  assert.equal(d.coppie, 1)
+  assert.equal(d.adultiInVolo, 2)
+  assert.deepEqual([d.partenze, d.arrivo, d.ritornoDa], [['DEN'], ['KOA'], ['KOA']])
+  assert.deepEqual(d.accesso, { aeroporti: { DEN: { auto: 0, parcheggio: 110 } }, persona: { DEN: 55 } })
+  const t = d.alloggi.tappe
+  assert.deepEqual(t.map((x) => x.id), ['kona', 'volcano', 'kohala'])
+  assert.equal(t[0].dal, '2027-02-17')
+  assert.equal(t.at(-1).al, '2027-02-27')
+  for (let i = 1; i < t.length; i++) assert.equal(t[i].dal, t[i - 1].al)
+  assert.deepEqual(t.map((x) => x.notti), [4, 3, 3])
+  assert.deepEqual(t.map((x) => x.vicino), ['Kona', 'Volcano', 'Waimea'])
+  assert.deepEqual([d.alloggi.adulti, d.alloggi.camere, d.alloggi.bagni], [2, 1, 1])
+  assert.deepEqual(d.extra[0], { voce: big.costi.noleggio.voce, importo: null })
+  // gli ingressi ai parchi nazionali sono coperti dal pass: non stanno tra gli extra
+  assert.ok(d.extra.every((e) => !/nazional/i.test(e.voce)), JSON.stringify(d.extra))
+  assert.equal(d.extra.slice(1).reduce((n, e) => n + e.importo, 0), 660 + 272 + 293 + 40 + 25)
+  assert.deepEqual(d.carburante, { km: 820, litri: 66, importo: 98.4 })
+  assert.deepEqual([d.ospiti, d.alternative, d.rientro], [[], [], null])
+  assert.deepEqual(d.playlist.blocchi.map((b) => b.giorno), [1, 5, 8, 11])
+  assert.equal(d.playlist.spotify, null)
+  assert.equal(d.playlist.generi.isole, 'Musica delle isole')
 })
 
 test('notti', () => {
@@ -51,7 +92,7 @@ test('datiPagina: tappe consecutive per 14 notti, noleggio tra gli extra, carbur
   assert.deepEqual(d.ospiti, [{ id: 'rientro', voce: 'Volo di rientro', adulti: 2, da: ['BZN'], a: ['DEN'], date: ['2027-07-29'] }])
   assert.deepEqual(d.alternative, [])
   assert.deepEqual(datiPagina({ slug: 'x' }), {
-    versione: 1, valuta: 'EUR', coppie: null, adultiInVolo: null, partenze: null, arrivo: null, ritornoDa: null, accesso: null, alloggi: null, extra: [],
+    versione: 1, valuta: 'EUR', aggiornamento: { voli: false, alloggi: false }, coppie: null, adultiInVolo: null, partenze: null, arrivo: null, ritornoDa: null, accesso: null, alloggi: null, extra: [],
     carburante: null, rientro: null, ospiti: [], alternative: [], playlist: null,
   })
 })

@@ -1,7 +1,8 @@
 // Scalette delle playlist di viaggio, per slug. Ogni blocco è un tragitto in
 // macchina tutti insieme (giorno = numero del giorno nel programma della pagina).
 // Brano = [artista, titolo, genere]; generi: classici (road trip USA), rock
-// (rock/indie 2000-2020), italiani, pop (da cantare), epici (grandi spazi e colonne sonore).
+// (rock/indie 2000-2020), italiani, pop (da cantare), epici (grandi spazi e colonne sonore),
+// isole (Hawaii e dintorni).
 // scripts/spotify.mjs crea o aggiorna la playlist su Spotify da qui; l'ID va in src/spotify.json.
 export const GENERI = {
   classici: 'Classici da road trip USA',
@@ -9,6 +10,7 @@ export const GENERI = {
   italiani: 'Italiani da cantare',
   pop: 'Pop da cantare',
   epici: 'Epici da grandi spazi',
+  isole: 'Musica delle isole',
 }
 
 // Viaggio lungo (15–29 luglio, da Denver a Bozeman): la playlist Spotify è questa.
@@ -236,6 +238,99 @@ const lungo = {
   ],
 }
 
+// Big Island (17–28 febbraio 2027, in due): playlist nuova. Giorni del programma della pagina.
+// Nomi di artisti e titoli con l'apostrofo semplice, come su Spotify.
+const bigIsland = {
+  nome: 'Big Island 2027 · Kona, il vulcano, le stelle',
+  descrizione: 'Per i tragitti in due: la strada del sud, la costa di Hāmākua, l’ultima corsa verso l’aeroporto. Guido io, scegli tu.',
+  blocchi: [
+    {
+      id: 'arrivo',
+      giorno: 1,
+      titolo: 'Atterrati',
+      tragitto: 'Aeroporto di Kona → Kailua-Kona',
+      brani: [
+        ['Israel Kamakawiwo\'ole', 'Somewhere Over the Rainbow', 'isole'],
+        ['Elvis Presley', 'Blue Hawaii', 'isole'],
+        ['Jack Johnson', 'Banana Pancakes', 'isole'],
+        ['The Beach Boys', 'Kokomo', 'isole'],
+        ['Bruno Mars', 'Count on Me', 'pop'],
+        ['Gino Paoli', 'Sapore di sale', 'italiani'],
+      ],
+    },
+    {
+      id: 'sud',
+      giorno: 5,
+      titolo: 'Verso il vulcano, il giorno dopo la festa',
+      tragitto: 'Kona → Puʻuhonua o Hōnaunau → Punaluʻu → Volcano',
+      brani: [
+        ['The Beatles', 'Birthday', 'classici'],
+        ['Johnny Cash', 'Ring of Fire', 'classici'],
+        ['Jerry Lee Lewis', 'Great Balls of Fire', 'classici'],
+        ['The Doors', 'Light My Fire', 'classici'],
+        ['Jimmy Buffett', 'Volcano', 'classici'],
+        ['Talking Heads', 'Burning Down the House', 'rock'],
+        ['Israel Kamakawiwo\'ole', 'Hawai\'i \'78', 'isole'],
+        ['Mark Keali\'i Ho\'omalu', 'Hawaiian Roller Coaster Ride', 'isole'],
+        ['Jake Shimabukuro', 'While My Guitar Gently Weeps', 'isole'],
+        ['Kings of Leon', 'Use Somebody', 'rock'],
+        ['MGMT', 'Electric Feel', 'rock'],
+        ['Bruno Mars', 'Treasure', 'pop'],
+        ['Pharrell Williams', 'Happy', 'pop'],
+        ['Adriano Celentano', 'Azzurro', 'italiani'],
+        ['Lucio Battisti', 'Acqua azzurra, acqua chiara', 'italiani'],
+        ['Righeira', 'Vamos a la playa', 'italiani'],
+        ['Vangelis', 'Conquest of Paradise', 'epici'],
+        ['Creedence Clearwater Revival', 'Have You Ever Seen the Rain', 'classici'],
+      ],
+    },
+    {
+      id: 'hamakua',
+      giorno: 8,
+      titolo: 'Pioggia, cascate e la costa di Hāmākua',
+      tragitto: 'Volcano → Hilo → ʻAkaka Falls → costa di Hāmākua → Waimea',
+      brani: [
+        ['Creedence Clearwater Revival', 'Bad Moon Rising', 'classici'],
+        ['Van Morrison', 'Moondance', 'classici'],
+        ['Neil Young', 'Harvest Moon', 'classici'],
+        ['David Bowie', 'Starman', 'classici'],
+        ['David Bowie', 'Space Oddity', 'classici'],
+        ['Israel Kamakawiwo\'ole', 'White Sandy Beach of Hawai\'i', 'isole'],
+        ['Jack Johnson', 'Better Together', 'isole'],
+        ['Auli\'i Cravalho', 'How Far I\'ll Go', 'isole'],
+        ['Florence + The Machine', 'Dog Days Are Over', 'rock'],
+        ['Phoenix', '1901', 'rock'],
+        ['Foo Fighters', 'Everlong', 'rock'],
+        ['Jason Mraz', 'I\'m Yours', 'pop'],
+        ['Bob Marley & The Wailers', 'Three Little Birds', 'pop'],
+        ['Lucio Dalla', 'Caruso', 'italiani'],
+        ['Franco Battiato', 'La cura', 'italiani'],
+        ['Hans Zimmer', 'Cornfield Chase', 'epici'],
+        ['Sigur Rós', 'Hoppípolla', 'epici'],
+        ['Ludovico Einaudi', 'Experience', 'epici'],
+      ],
+    },
+    {
+      id: 'ultimo',
+      giorno: 11,
+      titolo: 'L’ultima corsa',
+      tragitto: 'Waimea → Hāpuna → aeroporto di Kona',
+      brani: [
+        ['The Beatles', 'Here Comes the Sun', 'classici'],
+        ['Jack Johnson', 'Upside Down', 'isole'],
+        ['Dwayne Johnson', 'You\'re Welcome', 'isole'],
+        ['Vampire Weekend', 'A-Punk', 'rock'],
+        ['Bruno Mars', 'Just the Way You Are', 'pop'],
+        ['Harry Styles', 'Watermelon Sugar', 'pop'],
+        ['Ed Sheeran', 'Perfect', 'pop'],
+        ['Jovanotti', 'L\'estate addosso', 'italiani'],
+        ['Max Gazzè', 'La vita com\'è', 'italiani'],
+        ['M83', 'Outro', 'epici'],
+      ],
+    },
+  ],
+}
+
 // Versione breve: stessa playlist Spotify (playlistDi in src/viaggi.js); in pagina solo
 // i blocchi dei tragitti nei parchi, con i giorni del suo programma ([id, giorno, tragitto]).
 const BREVE = [
@@ -254,4 +349,6 @@ export const playlist = {
       return { ...b, giorno, tragitto: tragitto ?? b.tragitto }
     }),
   },
+  // Dopo i due dell'Ovest: scripts/spotify.mjs senza --slug usa la prima voce.
+  'big-island-2027': bigIsland,
 }

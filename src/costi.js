@@ -3,6 +3,10 @@
 
 const r2 = (n) => Math.round(n * 100) / 100
 
+export const VALUTA_DEFAULT = 'EUR'
+/** Valuta del viaggio: `valuta` se è un codice ISO a tre lettere, altrimenti EUR. */
+export const valutaDi = (v) => (typeof v?.valuta === 'string' && /^[A-Z]{3}$/.test(v.valuta) ? v.valuta : VALUTA_DEFAULT)
+
 /**
  * Costo per l'auto intera per andare e tornare dallo stesso aeroporto:
  * due tratte (andata e ritorno) più il parcheggio per tutto il soggiorno.
@@ -26,11 +30,15 @@ export function notti(dal, al) {
   return Math.round((t(al) - t(dal)) / 86400000)
 }
 
-/** Carburante per km percorsi: { km, litri, importo } in euro, null se la stima non è configurata. */
+/**
+ * Carburante per km percorsi: { km, litri, importo } nella valuta del viaggio, null se la stima non è configurata.
+ * Prezzo al litro in `prezzoLitro` (`euroLitro` è il vecchio nome, ancora accettato).
+ */
 export function carburante(c, km = c?.km) {
-  if (!c || typeof km !== 'number' || typeof c.litriPer100 !== 'number' || typeof c.euroLitro !== 'number') return null
+  const prezzo = c?.prezzoLitro ?? c?.euroLitro
+  if (!c || typeof km !== 'number' || typeof c.litriPer100 !== 'number' || typeof prezzo !== 'number') return null
   const litri = (km * c.litriPer100) / 100
-  return { km, litri: Math.round(litri), importo: r2(litri * c.euroLitro) }
+  return { km, litri: Math.round(litri), importo: r2(litri * prezzo) }
 }
 
 /**
@@ -79,7 +87,9 @@ export function datiPagina(v, extra = {}) {
   const noleggio = (x) => (x ? { voce: x.voce, importo: typeof x.importo === 'number' ? x.importo : null } : null)
   return {
     versione: 1,
-    valuta: 'EUR',
+    valuta: valutaDi(v),
+    // false = niente ricerca periodica (la pagina parla di una rilevazione unica).
+    aggiornamento: { voli: v.voli?.attivo === true, alloggi: v.alloggi?.attivo === true },
     coppie: v.costi?.coppie ?? null,
     adultiInVolo: adulti,
     partenze: v.voli?.andata?.da ?? null,
