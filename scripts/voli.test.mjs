@@ -67,8 +67,8 @@ function parseCSV(text) {
 }
 
 describe('configurazione e budget', () => {
-  test('coppie: 9 per Ovest, scarta ritorni non successivi', () => {
-    assert.equal(coppie(ovest.voli).length, 9)
+  test('coppie: 6 per Ovest, scarta ritorni non successivi', () => {
+    assert.equal(coppie(ovest.voli).length, 6)
     const c = coppie({ andata: { date: ['2027-07-16', '2027-07-20'] }, ritorno: { date: ['2027-07-16', '2027-07-20', '2027-07-25'] } })
     assert.deepEqual(c, [
       { andata: '2027-07-16', ritorno: '2027-07-20' },
@@ -78,14 +78,14 @@ describe('configurazione e budget', () => {
   })
 
   test('andate già passate: saltate nelle coppie e nel budget', () => {
-    const c = coppie(ovest.voli, '2027-07-17')
-    assert.equal(c.length, 6)
-    assert.ok(c.every((x) => x.andata >= '2027-07-17'))
-    assert.equal(coppie(ovest.voli, '2026-10-28').length, 9)
-    assert.deepEqual(stimaBudget([ovest], '2027-07-17'), { perEsecuzione: 10, alMese: 160, livello: 'ok' })
-    // dopo il 31 luglio non c'è più nemmeno il rientro
-    assert.deepEqual(rientri(ovest.voli, '2027-08-01'), [])
-    assert.deepEqual(rientri(ovest.voli, '2026-10-28'), ['2027-07-31'])
+    const c = coppie(ovest.voli, '2027-07-15')
+    assert.equal(c.length, 4)
+    assert.ok(c.every((x) => x.andata >= '2027-07-15'))
+    assert.equal(coppie(ovest.voli, '2026-10-28').length, 6)
+    assert.deepEqual(stimaBudget([ovest], '2027-07-15'), { perEsecuzione: 8, alMese: 128, livello: 'ok' })
+    // dopo il 29 luglio non c'è più nemmeno il rientro
+    assert.deepEqual(rientri(ovest.voli, '2027-07-30'), [])
+    assert.deepEqual(rientri(ovest.voli, '2026-10-28'), ['2027-07-29'])
     assert.deepEqual(rientri({ ...ovest.voli, rientroOspiti: { ...ovest.voli.rientroOspiti, attivo: false } }), [])
   })
 
@@ -100,16 +100,16 @@ describe('configurazione e budget', () => {
     assert.deepEqual(attivi(lista, '2027-07-19').map((v) => v.slug), [])
   })
 
-  test('stimaBudget: 13 per esecuzione (9 coppie + 3 aeroporti + 1 rientro), 208 al mese; oltre 220 avviso, oltre 250 errore', () => {
-    assert.deepEqual(stimaBudget([ovest]), { perEsecuzione: 13, alMese: 208, livello: 'ok' })
+  test('stimaBudget: 10 per esecuzione (6 coppie + 3 aeroporti + 1 rientro), 160 al mese; oltre 220 avviso, oltre 250 errore', () => {
+    assert.deepEqual(stimaBudget([ovest]), { perEsecuzione: 10, alMese: 160, livello: 'ok' })
     assert.equal(stimaBudget([ovest, ovest]).livello, 'errore')
-    const piccolo = { voli: { andata: { da: ['BLQ'], date: ['2027-01-01'] }, ritorno: { date: ['2027-01-10'] } } }
-    assert.equal(stimaBudget([ovest, piccolo]).alMese, 240)
+    const piccolo = { voli: { andata: { da: ['BLQ'], date: ['2027-01-01', '2027-01-02', '2027-01-03'] }, ritorno: { date: ['2027-01-10'] } } }
+    assert.equal(stimaBudget([ovest, piccolo]).alMese, 224)
     assert.equal(stimaBudget([ovest, piccolo]).livello, 'avviso')
   })
 
   test('parametri: multi-city con aeroporti raggruppati', () => {
-    const p = parametri(ovest.voli, { andata: '2027-07-17', ritorno: '2027-07-31' }, { api_key: 'k', departure_token: 't' })
+    const p = parametri(ovest.voli, { andata: '2027-07-15', ritorno: '2027-07-29' }, { api_key: 'k', departure_token: 't' })
     assert.equal(p.get('engine'), 'google_flights')
     assert.equal(p.get('type'), '3')
     assert.equal(p.get('adults'), '4')
@@ -118,8 +118,8 @@ describe('configurazione e budget', () => {
     assert.equal(p.get('gl'), 'it')
     assert.equal(p.get('departure_token'), 't')
     assert.deepEqual(JSON.parse(p.get('multi_city_json')), [
-      { departure_id: 'BLQ,MXP,VCE', arrival_id: 'DEN', date: '2027-07-17' },
-      { departure_id: 'BZN', arrival_id: 'BLQ,MXP,VCE', date: '2027-07-31' },
+      { departure_id: 'BLQ,MXP,VCE', arrival_id: 'DEN', date: '2027-07-15' },
+      { departure_id: 'BZN', arrival_id: 'BLQ,MXP,VCE', date: '2027-07-29' },
     ])
     assert.equal(parametri(ovest.voli, { andata: 'a', ritorno: 'b' }, { adults: 1 }).get('adults'), '1')
     assert.equal(p.has('no_cache'), false)
@@ -232,24 +232,24 @@ describe('esecuzione completa con fixture', () => {
     assert.deepEqual(token, ['tok-blq-cdg-ord-den', 'tok-mxp-den', 'tok-vce-zrh-den'])
     const r1 = parseCSV(readFileSync(csv, 'utf8'))
     assert.deepEqual(r1[0], HEADER)
-    // 9 coppie × 4 opzioni + 3 follow-up × 2 ritorni
+    // 6 coppie × 4 opzioni + 3 follow-up × 2 ritorni
     // + 3 opzioni del rientro di chi ospita
-    assert.equal(r1.length, 1 + 9 * 4 + 3 * 2 + 3)
+    assert.equal(r1.length, 1 + 6 * 4 + 3 * 2 + 3)
     const col = (r, k) => r[HEADER.indexOf(k)]
     const andata = r1.slice(1).filter((r) => col(r, 'tipo') === 'andata')
     const ritorno = r1.slice(1).filter((r) => col(r, 'tipo') === 'ritorno')
-    assert.equal(andata.length, 36)
+    assert.equal(andata.length, 24)
     assert.equal(ritorno.length, 6)
     assert.ok(r1.slice(1).every((r) => col(r, 'run') === '2026-10-28T05:17:00Z'))
     const migliori = andata.filter((r) => col(r, 'migliore') === '1')
     assert.deepEqual(migliori.map((r) => [col(r, 'da'), col(r, 'prezzo'), col(r, 'gruppo'), col(r, 'data_andata')]), [
-      ['MXP', '3920', '2', '2027-07-16'],
-      ['VCE', '3610', '3', '2027-07-16'],
-      ['BLQ', '3360', '1', '2027-07-16'],
+      ['MXP', '3920', '2', '2027-07-14'],
+      ['VCE', '3610', '3', '2027-07-14'],
+      ['BLQ', '3360', '1', '2027-07-14'],
     ])
     assert.ok(andata.filter((r) => col(r, 'migliore') !== '1').every((r) => col(r, 'gruppo') === ''))
     assert.deepEqual([...new Set(ritorno.map((r) => col(r, 'gruppo')))], ['1', '2', '3'])
-    assert.ok(ritorno.every((r) => col(r, 'data_andata') === '2027-07-16' && col(r, 'data_ritorno') === '2027-07-30'))
+    assert.ok(ritorno.every((r) => col(r, 'data_andata') === '2027-07-14' && col(r, 'data_ritorno') === '2027-07-28'))
     // migliore = ritorno più economico verso lo stesso aeroporto, anche se uno misto costa meno
     const m = ritorno.filter((r) => col(r, 'migliore') === '1')
     assert.deepEqual(m.map((r) => [col(r, 'gruppo'), col(r, 'a'), col(r, 'prezzo_persona')]), [
@@ -262,7 +262,7 @@ describe('esecuzione completa con fixture', () => {
     assert.equal(await esegui({ ...base, outDir: dir, now: '2026-10-30T05:17:00Z', log }), 0)
     const testo = readFileSync(csv, 'utf8')
     const r2 = parseCSV(testo)
-    assert.equal(r2.length, 1 + 2 * 45)
+    assert.equal(r2.length, 1 + 2 * 33)
     assert.equal(testo.split('\n').filter((l) => l.startsWith('run,')).length, 1)
     assert.equal(existsSync(csv + '.tmp'), false)
   })
@@ -276,7 +276,7 @@ describe('esecuzione completa con fixture', () => {
     assert.equal(await esegui({ ...base, fetchImpl, outDir: d, now: '2026-10-28T05:17:00Z', log }), 0)
     const r = parseCSV(readFileSync(path.join(d, 'ovest-2027', 'voli.csv'), 'utf8')).slice(1)
     const col = (x, k) => x[HEADER.indexOf(k)]
-    assert.equal(r.length, 36 + 4 + 3)
+    assert.equal(r.length, 24 + 4 + 3)
     const mxp = r.filter((x) => col(x, 'tipo') === 'andata' && col(x, 'da') === 'MXP')
     assert.ok(mxp.every((x) => col(x, 'gruppo') === '' && col(x, 'migliore') === ''))
     assert.deepEqual([...new Set(r.filter((x) => col(x, 'tipo') === 'ritorno').map((x) => col(x, 'gruppo')))], ['1', '2'])
@@ -285,9 +285,9 @@ describe('esecuzione completa con fixture', () => {
 
   test('rientro di chi ospita: solo andata per 2, righe tipo rientro senza data di ritorno né gruppo', async () => {
     const d = mkdtempSync(path.join(dir, 'r-'))
-    const p = parametriRientro(ovest.voli.rientroOspiti, '2027-07-31', { api_key: 'k' })
+    const p = parametriRientro(ovest.voli.rientroOspiti, '2027-07-29', { api_key: 'k' })
     assert.deepEqual(Object.fromEntries(p), {
-      engine: 'google_flights', type: '2', departure_id: 'BZN', arrival_id: 'DEN', outbound_date: '2027-07-31', adults: '2',
+      engine: 'google_flights', type: '2', departure_id: 'BZN', arrival_id: 'DEN', outbound_date: '2027-07-29', adults: '2',
       currency: 'EUR', hl: 'it', gl: 'it', api_key: 'k',
     })
     assert.equal(p.has('return_date'), false)
@@ -297,9 +297,9 @@ describe('esecuzione completa con fixture', () => {
     assert.deepEqual(r[0], HEADER) // nessuna colonna nuova
     const ri = r.slice(1).filter((x) => col(x, 'tipo') === 'rientro')
     assert.deepEqual(ri.map((x) => [col(x, 'data_andata'), col(x, 'data_ritorno'), col(x, 'adulti'), col(x, 'prezzo'), col(x, 'prezzo_persona'), col(x, 'gruppo'), col(x, 'migliore')]), [
-      ['2027-07-31', '', '2', '412', '206', '', ''],
-      ['2027-07-31', '', '2', '298', '149', '', '1'],
-      ['2027-07-31', '', '2', '356', '178', '', ''],
+      ['2027-07-29', '', '2', '412', '206', '', ''],
+      ['2027-07-29', '', '2', '298', '149', '', '1'],
+      ['2027-07-29', '', '2', '356', '178', '', ''],
     ])
     assert.equal(col(ri[1], 'compagnie'), 'Southwest')
     assert.equal(col(ri[2], 'aeroporti_scalo'), 'SLC')
@@ -312,8 +312,8 @@ describe('esecuzione completa con fixture', () => {
     const log = silenzio()
     assert.equal(await esegui({ ...base, fetchImpl, outDir: d, now: '2026-10-28T05:17:00Z', log }), 0)
     const r = parseCSV(readFileSync(path.join(d, 'ovest-2027', 'voli.csv'), 'utf8')).slice(1)
-    assert.equal(r.length, 36 + 6)
-    assert.match(log.msgs.warn.join('\n'), /rientro BZN → DEN 2027-07-31: nessun prezzo/)
+    assert.equal(r.length, 24 + 6)
+    assert.match(log.msgs.warn.join('\n'), /rientro BZN → DEN 2027-07-29: nessun prezzo/)
   })
 
   test('migrazione dal CSV della prima versione: colonne allungate, valori preservati, poi accoda', async () => {
@@ -331,7 +331,7 @@ describe('esecuzione completa con fixture', () => {
     const r = parseCSV(readFileSync(f, 'utf8'))
     assert.deepEqual(r[0], HEADER)
     for (let i = 1; i < vecchie.length; i++) assert.deepEqual(r[i], [...vecchie[i], ''])
-    assert.equal(r.length, vecchie.length + 45)
+    assert.equal(r.length, vecchie.length + 33)
   })
 
   test('intestazione diversa: errore e file invariato', async () => {
@@ -355,11 +355,11 @@ describe('esecuzione completa con fixture', () => {
       if (!p.has('departure_token') && p.get('type') === '3') date.push(JSON.parse(p.get('multi_city_json'))[0].date)
       return base0(url)
     }
-    assert.equal(await esegui({ ...base, fetchImpl, outDir: d, now: '2027-07-17T05:17:00Z', log: silenzio() }), 0)
-    assert.equal(date.length, 6)
-    assert.ok(date.every((x) => x >= '2027-07-17'))
+    assert.equal(await esegui({ ...base, fetchImpl, outDir: d, now: '2027-07-15T05:17:00Z', log: silenzio() }), 0)
+    assert.equal(date.length, 4)
+    assert.ok(date.every((x) => x >= '2027-07-15'))
     const r = parseCSV(readFileSync(path.join(d, 'ovest-2027', 'voli.csv'), 'utf8'))
-    assert.equal(r.length, 1 + 6 * 4 + 3 * 2 + 3)
+    assert.equal(r.length, 1 + 4 * 4 + 3 * 2 + 3)
   })
 
   test('CSV esistente ma vuoto: si scrive l’intestazione', async () => {
@@ -370,7 +370,7 @@ describe('esecuzione completa con fixture', () => {
     assert.equal(await esegui({ ...base, outDir: d, now: '2026-10-28T05:17:00Z', log: silenzio() }), 0)
     const r = parseCSV(readFileSync(f, 'utf8'))
     assert.deepEqual(r[0], HEADER)
-    assert.equal(r.length, 1 + 45)
+    assert.equal(r.length, 1 + 33)
   })
 
   test('chiave non valida: nessun file', async () => {
@@ -388,7 +388,7 @@ describe('esecuzione completa con fixture', () => {
     const codice = await esegui({ ...base, fetchImpl: fetchFixture(FIXTURE, 'vuoto'), outDir: d, now: '2026-10-28T05:17:00Z', log })
     assert.equal(codice, 1)
     assert.equal(existsSync(path.join(d, 'ovest-2027')), false)
-    assert.equal(log.msgs.warn.length, 9)
+    assert.equal(log.msgs.warn.length, 6)
   })
 
   test('chiave mancante', async () => {
@@ -409,12 +409,12 @@ describe('esecuzione completa con fixture', () => {
     assert.equal(chiamate, 0)
   })
 
-  test('CLI --dry-run: 13 ricerche per esecuzione, 208 al mese', () => {
+  test('CLI --dry-run: 10 ricerche per esecuzione, 160 al mese', () => {
     const r = spawnSync(process.execPath, [path.join(QUI, 'voli.mjs'), '--dry-run'], {
       encoding: 'utf8',
       env: { ...process.env, SERPAPI_KEY: '', VOLI_NOW: '2026-10-28T05:17:00Z' },
     })
     assert.equal(r.status, 0, r.stderr)
-    assert.match(r.stdout, /13 ricerche per esecuzione, circa 208 al mese/)
+    assert.match(r.stdout, /10 ricerche per esecuzione, circa 160 al mese/)
   })
 })

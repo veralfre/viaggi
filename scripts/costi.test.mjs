@@ -37,10 +37,10 @@ test('datiPagina: tappe consecutive per 14 notti, noleggio tra gli extra, carbur
   assert.equal(d.adultiInVolo, 4)
   assert.deepEqual(d.accesso.persona, { BLQ: 0, MXP: 57.5, VCE: 41.5 })
   assert.deepEqual(d.partenze, ['BLQ', 'MXP', 'VCE'])
-  assert.deepEqual(d.rientro, { adulti: 2, da: ['BZN'], a: ['DEN'], date: ['2027-07-31'] })
+  assert.deepEqual(d.rientro, { adulti: 2, da: ['BZN'], a: ['DEN'], date: ['2027-07-29'] })
   const t = d.alloggi.tappe
-  assert.equal(t[0].dal, '2027-07-17')
-  assert.equal(t.at(-1).al, '2027-07-31')
+  assert.equal(t[0].dal, '2027-07-15')
+  assert.equal(t.at(-1).al, '2027-07-29')
   for (let i = 1; i < t.length; i++) assert.equal(t[i].dal, t[i - 1].al)
   assert.equal(t.reduce((n, x) => n + x.notti, 0), 14)
   assert.match(t.find((x) => x.id === 'west-yellowstone').nota, /West Yellowstone/)

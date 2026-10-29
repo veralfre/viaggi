@@ -53,8 +53,8 @@ Si attiva per viaggio in `src/viaggi.js`, con il campo `voli`:
 voli: {
   attivo: true,          // false (o campo assente) = non si cerca
   adulti: 4,             // quante persone volano dall'Italia
-  andata:  { da: ['BLQ', 'MXP', 'VCE'], a: ['DEN'], date: ['2027-07-16', '2027-07-17', '2027-07-18'] },
-  ritorno: { da: ['BZN'], a: ['BLQ', 'MXP', 'VCE'], date: ['2027-07-30', '2027-07-31', '2027-08-01'] },
+  andata:  { da: ['BLQ', 'MXP', 'VCE'], a: ['DEN'], date: ['2027-07-14', '2027-07-15', '2027-07-16'] },
+  ritorno: { da: ['BZN'], a: ['BLQ', 'MXP', 'VCE'], date: ['2027-07-28', '2027-07-29'] },
   accesso: { MXP: { auto: 55, parcheggio: 120 }, … },  // vedi «Costo reale e accesso agli aeroporti»
 }
 ```
@@ -63,7 +63,7 @@ Gli aeroporti di una tratta vanno in un'unica ricerca (Google Flights li raggrup
 
 ### Budget
 
-Il piano gratuito di SerpApi ha **250 ricerche al mese**, condivise tra tutti i viaggi attivi. Ogni viaggio costa `(coppie di date + aeroporti di partenza + date del rientro di chi ospita)` ricerche per esecuzione, e le esecuzioni sono al massimo 16 al mese: Ovest 2027 = (9 + 3 + 1) × 16 = 208. Restano 42 ricerche al mese: circa **3 esecuzioni manuali** (`gh workflow run`, 13 ricerche ciascuna). Gli alloggi hanno una chiave e un budget separati. Sopra 220 lo script avvisa, sopra 250 si ferma prima di fare qualunque chiamata. Per controllare il piano senza chiave e senza chiamate:
+Il piano gratuito di SerpApi ha **250 ricerche al mese**, condivise tra tutti i viaggi attivi. Ogni viaggio costa `(coppie di date + aeroporti di partenza + date del rientro di chi ospita)` ricerche per esecuzione, e le esecuzioni sono al massimo 16 al mese: Ovest 2027 = (6 + 3 + 1) × 16 = 160. Restano 90 ricerche al mese: circa **9 esecuzioni manuali** (`gh workflow run`, 10 ricerche ciascuna). Gli alloggi hanno una chiave e un budget separati. Sopra 220 lo script avvisa, sopra 250 si ferma prima di fare qualunque chiamata. Per controllare il piano senza chiave e senza chiamate:
 
 ```sh
 npm run voli:dry
@@ -74,7 +74,7 @@ npm run voli:dry
 Chi ospita vive a Denver: a fine viaggio consegna il SUV a Bozeman e torna a casa in aereo. Con `voli.rientroOspiti` lo script fa anche una ricerca di **solo andata** (Google Flights `type=2`) per quel volo, sulla stessa chiave dei voli:
 
 ```js
-rientroOspiti: { attivo: true, adulti: 2, da: ['BZN'], a: ['DEN'], date: ['2027-07-31'] },
+rientroOspiti: { attivo: true, adulti: 2, da: ['BZN'], a: ['DEN'], date: ['2027-07-29'] },
 ```
 
 Le opzioni finiscono in `voli.csv` come righe `tipo=rientro` (stesse colonne, nessuna colonna nuova; `prezzo` è il totale per gli adulti indicati e `prezzo_persona` la quota a testa; `migliore=1` sulla più economica). Se la ricerca fallisce è solo un avviso. La pagina le ignora per andata, ritorno e «a partire da», e le usa per una riga nella sezione voli e per la riga «Volo di rientro» del conto, a carico della coppia che ospita.
@@ -140,7 +140,7 @@ alloggi: {
   raggioKm: 25,                      // solo case entro 25 km dal centro della tappa
   fonti: ['airbnb', 'booking'],
   tappe: [
-    { id: 'denver', nome: 'Denver', q: 'Denver, Colorado, USA', centro: [39.7392, -104.9903], dal: '2027-07-17', al: '2027-07-18' },
+    { id: 'denver', nome: 'Denver', q: 'Denver, Colorado, USA', centro: [39.7392, -104.9903], dal: '2027-07-15', al: '2027-07-16' },
     // …; facoltativi: `raggioKm` (per tappa), `vicino` (nome del posto da cui si misura la distanza
     // in pagina, es. «West Yellowstone»), `nota` (mostrata nella scheda della tappa)
   ],
@@ -187,7 +187,7 @@ SerpApi non ha un motore per il noleggio auto (nemmeno su Booking), quindi noleg
 costi: {
   coppie: 3,
   noleggio: {
-    voce: 'Noleggio SUV 7 posti, Denver → Bozeman (16–30 luglio)', importo: 1816,
+    voce: 'Noleggio SUV 7 posti, Denver → Bozeman (16–29 luglio)', importo: 1816,
   },
   carburante: { km: 2300, litriPer100: 12.5, euroLitro: 0.85 },  // stima, offre chi ospita
   extra: [],  // altre voci { voce, importo } divise tra le coppie

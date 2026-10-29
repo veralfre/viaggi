@@ -27,13 +27,13 @@ describe('configurazione e budget', () => {
   test('parametri per fonte', () => {
     const a = parametri('airbnb', al, jackson, { api_key: 'k' })
     assert.deepEqual(Object.fromEntries(a), {
-      engine: 'airbnb', q: 'Jackson, Wyoming, USA', check_in_date: '2027-07-21', check_out_date: '2027-07-24', adults: '6',
+      engine: 'airbnb', q: 'Jackson, Wyoming, USA', check_in_date: '2027-07-19', check_out_date: '2027-07-22', adults: '6',
       currency: 'EUR', bedrooms: '3', bathrooms: '2', room_type: 'entire_home', api_key: 'k',
       map_bounds: '43.7045,-110.4529,43.2553,-111.0719',
     })
     const b = parametri('booking', al, jackson)
     assert.deepEqual(Object.fromEntries(b), {
-      engine: 'booking', q: 'Jackson, Wyoming, USA', check_in_date: '2027-07-21', check_out_date: '2027-07-24', adults: '6',
+      engine: 'booking', q: 'Jackson, Wyoming, USA', check_in_date: '2027-07-19', check_out_date: '2027-07-22', adults: '6',
       currency: 'EUR', rooms: '1', property_types: '201,220',
     })
     assert.equal(b.has('no_cache'), false)
@@ -42,16 +42,16 @@ describe('configurazione e budget', () => {
 
   test('tappe future e viaggi attivi', () => {
     assert.equal(tappe(al, '2026-10-28').length, 6)
-    assert.deepEqual(tappe(al, '2027-07-24').map((t) => t.id), ['west-yellowstone', 'gardiner', 'bozeman'])
-    assert.deepEqual(attivi(viaggi, '2027-07-31').map((v) => v.slug), [])
+    assert.deepEqual(tappe(al, '2027-07-22').map((t) => t.id), ['west-yellowstone', 'gardiner', 'bozeman'])
+    assert.deepEqual(attivi(viaggi, '2027-07-29').map((v) => v.slug), [])
     assert.deepEqual(attivi([{ slug: 'x', alloggi: { ...al, attivo: false } }, ovest], '2026-10-28').map((v) => v.slug), ['ovest-2027'])
   })
 
   test('budget 12 per esecuzione e 192 al mese, separato da quello dei voli', () => {
     assert.deepEqual(stimaBudget([ovest], '2026-10-28'), { perEsecuzione: 12, alMese: 192, livello: 'ok' })
-    assert.deepEqual(stimaBudget([ovest], '2027-07-24'), { perEsecuzione: 6, alMese: 96, livello: 'ok' })
+    assert.deepEqual(stimaBudget([ovest], '2027-07-22'), { perEsecuzione: 6, alMese: 96, livello: 'ok' })
     assert.equal(stimaBudget([ovest, ovest], '2026-10-28').livello, 'errore')
-    assert.equal(stimaVoli([ovest], '2026-10-28').perEsecuzione, 13)
+    assert.equal(stimaVoli([ovest], '2026-10-28').perEsecuzione, 10)
   })
 })
 
