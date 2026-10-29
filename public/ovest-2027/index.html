@@ -276,7 +276,7 @@ footer{border-top:1px solid var(--rule);padding:1.4em 0 2.4em;font-size:.82rem;c
 
 <section class="wrap" id="totale" aria-labelledby="tot-t">
   <h2 id="tot-t">Il conto, più o meno</h2>
-  <p class="lede">Voli, accesso all’aeroporto e case messi insieme e divisi per coppia. Si aggiorna da solo con i prezzi: serve a farsi un’idea, non è un preventivo.</p>
+  <p class="lede">Voli, accesso all’aeroporto, case, SUV e benzina messi insieme e divisi per coppia. La benzina la offriamo noi ⛽. Si aggiorna da solo con i prezzi: serve a farsi un’idea, non è un preventivo.</p>
   <div class="tot" id="tot" aria-live="polite"><p class="fare-empty">Faccio i conti…</p></div>
 </section>
 
@@ -901,8 +901,10 @@ function renderTotale(box,v,a,cfg){
   const conCase=a&&a.mancanti.length<a.tappe,voli=v?2*v.biglietto:null,acc=v&&v.accesso!=null?2*v.accesso:null,all=conCase?a.totale/coppie:null;
   const ex=extra.map(e=>({voce:e.voce,q:isNum(e.importo)?e.importo/coppie:null}));
   const riCfg=cfg&&cfg.rientro,ri=v&&v.rientro,mostraRi=!!(riCfg||ri),riTot=ri?ri.totale:null;
-  const vola=sum([voli,acc,all].concat(ex.map(e=>e.q))),ospita=sum([riTot,all].concat(ex.map(e=>e.q)));
-  const gruppo=(v?adulti*(v.biglietto+(v.accesso||0)):0)+(riTot||0)+(conCase?a.totale:0)+sum(extra.map(e=>e.importo));
+  /* benzina: tutta a carico di chi ospita, non divisa */
+  const carb=cfg&&cfg.carburante,benz=carb&&isNum(carb.importo)?carb.importo:null;
+  const vola=sum([voli,acc,all].concat(ex.map(e=>e.q))),ospita=sum([riTot,benz,all].concat(ex.map(e=>e.q)));
+  const gruppo=(v?adulti*(v.biglietto+(v.accesso||0)):0)+(riTot||0)+(benz||0)+(conCase?a.totale:0)+sum(extra.map(e=>e.importo));
   const perche=[];
   if(mostraRi&&!ri)perche.push("manca il prezzo del volo di rientro di chi ospita");
   if(!v)perche.push("mancano i voli");else{if(!v.verificato)perche.push("il prezzo dei voli è «a partire da», il ritorno non è ancora verificato");if(v.accesso==null)perche.push("manca la stima dell’accesso all’aeroporto");}
@@ -920,10 +922,11 @@ function renderTotale(box,v,a,cfg){
     riga('Voli (2 persone)'+(v&&!v.verificato?' <span class="tbd">provvisorio</span>':''),voli,null)+
     riga('Accesso all’aeroporto (2 persone)',v&&acc==null?'non stimato':acc,null)+
     (mostraRi?riga('Volo di rientro '+esc(riNome)+' ('+esc(riN)+' persone)',null,ri?riTot:'da rilevare'):'')+
+    (benz!=null?riga('Benzina (circa '+esc(dec(carb.km))+' km, offre chi ospita)',null,benz):'')+
     riga('Alloggi ('+quota+(conCase?' di '+esc(money(a.totale,cur)):'')+')',all,all)+
     ex.map(e=>riga(esc(e.voce)+' ('+quota+')',e.q==null?'da definire':e.q,e.q==null?'da definire':e.q)).join("")+
     '</tbody><tfoot><tr><th scope="row">Totale'+(parz?' parziale':'')+'</th>'+due(vola)+due(ospita)+'</tr></tfoot></table></div>'+
-    '<p class="fare-note">Per tutto il gruppo: <strong>'+esc(money(gruppo,cur))+'</strong> ('+esc(adulti)+' biglietti con l’accesso all’aeroporto'+(mostraRi?', il rientro di chi ospita':'')+', le case e gli extra già definiti).</p>'+
+    '<p class="fare-note">Per tutto il gruppo: <strong>'+esc(money(gruppo,cur))+'</strong> ('+esc(adulti)+' biglietti con l’accesso all’aeroporto'+(mostraRi?', il rientro di chi ospita':'')+(benz!=null?', la benzina':'')+', le case e gli extra già definiti).</p>'+
     (parz?'<p class="fare-note">Totale parziale: '+esc(perche.join("; "))+'.</p>':'')+
     '<p class="fare-note">Non compresi: pasti, attività e ingressi a pagamento, ESTA, assicurazione di viaggio, bagaglio da stiva se non incluso, eventuali pulizie o tasse non comprese nel prezzo mostrato'+(nulli.length?'; per ora anche '+esc(nulli.join(" e "))+', da definire':'')+'.</p>';}
 

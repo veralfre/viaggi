@@ -179,7 +179,22 @@ gh workflow run voli.yml -f cosa=alloggi
 
 ## Totale indicativo
 
-La sezione «Il conto, più o meno» somma, per la coppia che vola dall'Italia, due biglietti verificati, due quote di accesso all'aeroporto, un terzo delle case e un terzo degli extra; per la coppia che ospita, il volo di rientro Bozeman → Denver (se configurato; «da rilevare» finché non c'è un prezzo), un terzo delle case e degli extra. Per ogni voce la tabella mostra la cifra per coppia e quella a persona (metà). Il numero di coppie sta in `costi.coppie`. Gli extra sono voci a mano in `costi.extra` (SerpApi non ha un motore per il noleggio auto, nemmeno su Booking): con `importo: null` restano «da definire» e fuori dalla somma, e il totale è marcato parziale finché manca qualcosa (tappe senza prezzo, ritorno non verificato, rientro da rilevare, extra da definire). Non compresi: pasti, attività e ingressi a pagamento, ESTA, assicurazione, bagaglio da stiva se non incluso, eventuali pulizie o tasse non comprese nel prezzo mostrato.
+La sezione «Il conto, più o meno» somma, per la coppia che vola dall'Italia, due biglietti verificati, due quote di accesso all'aeroporto, un terzo delle case, del noleggio del SUV e degli extra; per la coppia che ospita, il volo di rientro Bozeman → Denver (se configurato; «da rilevare» finché non c'è un prezzo), tutta la benzina, un terzo delle case, del noleggio e degli extra. Per ogni voce la tabella mostra la cifra per coppia e quella a persona (metà). Il numero di coppie sta in `costi.coppie`.
+
+SerpApi non ha un motore per il noleggio auto (nemmeno su Booking), quindi noleggio e benzina sono a mano in `src/viaggi.js`:
+
+```js
+costi: {
+  coppie: 3,
+  noleggio: {
+    voce: 'Noleggio SUV 7 posti, Denver → Bozeman (16–30 luglio)', importo: 1816,
+  },
+  carburante: { km: 2300, litriPer100: 12.5, euroLitro: 0.85 },  // stima, offre chi ospita
+  extra: [],  // altre voci { voce, importo } divise tra le coppie
+}
+```
+
+La build calcola la benzina (`km × litriPer100 / 100 × euroLitro`) e la mette in `viaggio.json` con il noleggio (che finisce tra gli extra). Gli extra con `importo: null` restano «da definire» e fuori dalla somma, e il totale è marcato parziale finché manca qualcosa (tappe senza prezzo, ritorno non verificato, rientro da rilevare, extra da definire). Non compresi: pasti, attività e ingressi a pagamento, ESTA, assicurazione, bagaglio da stiva se non incluso, eventuali pulizie o tasse non comprese nel prezzo mostrato.
 
 ## Playlist del viaggio
 

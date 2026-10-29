@@ -9,8 +9,9 @@
 // - `alloggi`: con `attivo: true`, scripts/alloggi.mjs cerca case intere su
 //   Airbnb e Booking.com (SerpApi) per ogni tappa e accoda a public/<slug>/alloggi.csv.
 //   `npm run alloggi:dry`.
-// - `costi`: come dividere il conto (numero di coppie) e voci extra a mano
-//   (`importo: null` = da definire, esclusa dai totali).
+// - `costi`: come dividere il conto (numero di coppie), `noleggio` (diviso tra le
+//   coppie), `carburante` (stima, tutta a carico di chi ospita) e voci extra a
+//   mano (`importo: null` = da definire, esclusa dai totali).
 // Date e tappe già passate vengono saltate. I due budget di ricerche (voli e
 // alloggi) sono separati e condivisi tra i viaggi attivi.
 export const viaggi = [
@@ -64,11 +65,14 @@ export const viaggi = [
     },
     costi: {
       coppie: 3,
-      // Nessun motore SerpApi per il noleggio auto: importi a mano, null = da definire.
-      extra: [
-        { voce: 'Noleggio SUV', importo: null },
-        { voce: 'Carburante (circa 2.300 km)', importo: null },
-      ],
+      // Nessun motore SerpApi per il noleggio auto: importi a mano, presi il 2026-10-29.
+      noleggio: {
+        voce: 'Noleggio SUV 7 posti, Denver → Bozeman (16–30 luglio)',
+        importo: 1816, // Jeep Grand Cherokee L o simile, km illimitati, cancellazione gratuita
+      },
+      // Stima: SUV carico ~19 mpg (12,5 l/100 km), benzina ~3,60 $/gal (0,85 €/l). Paga chi ospita.
+      carburante: { km: 2300, litriPer100: 12.5, euroLitro: 0.85 },
+      extra: [],
     },
   },
 ]

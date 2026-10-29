@@ -26,6 +26,13 @@ export function notti(dal, al) {
   return Math.round((t(al) - t(dal)) / 86400000)
 }
 
+/** Carburante per km percorsi: { km, litri, importo } in euro, null se la stima non è configurata. */
+export function carburante(c, km = c?.km) {
+  if (!c || typeof km !== 'number' || typeof c.litriPer100 !== 'number' || typeof c.euroLitro !== 'number') return null
+  const litri = (km * c.litriPer100) / 100
+  return { km, litri: Math.round(litri), importo: r2(litri * c.euroLitro) }
+}
+
 const ID_SPOTIFY = /^[A-Za-z0-9]{22}$/
 
 /** Scaletta per la pagina: blocchi con brani { artista, titolo, genere } e ID Spotify se valido. */
@@ -53,6 +60,9 @@ export function datiPagina(v, extra = {}) {
   const persona = {}
   for (const da of Object.keys(acc ?? {})) persona[da] = accessoPersona(acc, adulti, da)
   const al = v.alloggi
+  const n = v.costi?.noleggio
+  const carb = v.costi?.carburante
+  const voci = (n && typeof n.importo === 'number' ? [n] : []).concat(v.costi?.extra ?? [])
   return {
     versione: 1,
     valuta: 'EUR',
@@ -71,7 +81,8 @@ export function datiPagina(v, extra = {}) {
           })),
         }
       : null,
-    extra: (v.costi?.extra ?? []).map((e) => ({ voce: e.voce, importo: typeof e.importo === 'number' ? e.importo : null })),
+    extra: voci.map((e) => ({ voce: e.voce, importo: typeof e.importo === 'number' ? e.importo : null })),
+    carburante: carburante(carb),
     rientro: v.voli?.rientroOspiti?.attivo === true
       ? { adulti: v.voli.rientroOspiti.adulti, da: v.voli.rientroOspiti.da, a: v.voli.rientroOspiti.a, date: v.voli.rientroOspiti.date }
       : null,

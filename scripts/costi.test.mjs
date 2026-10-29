@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { accessoPersona, costoAccesso, datiPagina, notti } from '../src/costi.js'
+import { accessoPersona, carburante, costoAccesso, datiPagina, notti } from '../src/costi.js'
 import { viaggi } from '../src/viaggi.js'
 
 const ovest = viaggi.find((v) => v.slug === 'ovest-2027')
@@ -17,12 +17,20 @@ test('accesso: andata + ritorno + parcheggio, diviso per chi vola', () => {
   assert.equal(accessoPersona(null, 4, 'MXP'), null)
 })
 
+test('carburante', () => {
+  const c = { km: 2300, litriPer100: 12.5, euroLitro: 0.85 }
+  assert.deepEqual(carburante(c), { km: 2300, litri: 288, importo: 244.38 })
+  assert.deepEqual(carburante(c, 1100), { km: 1100, litri: 138, importo: 116.88 })
+  assert.equal(carburante(null), null)
+  assert.equal(carburante({ km: 100 }), null)
+})
+
 test('notti', () => {
   assert.equal(notti('2027-07-17', '2027-07-18'), 1)
   assert.equal(notti('2027-07-30', '2027-08-02'), 3)
 })
 
-test('datiPagina: tappe consecutive per 14 notti, extra nulli preservati', () => {
+test('datiPagina: tappe consecutive per 14 notti, noleggio tra gli extra, carburante a parte', () => {
   const d = datiPagina(ovest)
   assert.equal(d.versione, 1)
   assert.equal(d.coppie, 3)
@@ -36,9 +44,8 @@ test('datiPagina: tappe consecutive per 14 notti, extra nulli preservati', () =>
   for (let i = 1; i < t.length; i++) assert.equal(t[i].dal, t[i - 1].al)
   assert.equal(t.reduce((n, x) => n + x.notti, 0), 14)
   assert.match(t.find((x) => x.id === 'west-yellowstone').nota, /West Yellowstone/)
-  assert.deepEqual(d.extra, [
-    { voce: 'Noleggio SUV', importo: null },
-    { voce: 'Carburante (circa 2.300 km)', importo: null },
-  ])
-  assert.deepEqual(datiPagina({ slug: 'x' }), { versione: 1, valuta: 'EUR', coppie: null, adultiInVolo: null, partenze: null, accesso: null, alloggi: null, extra: [], rientro: null, playlist: null })
+  assert.deepEqual(d.extra, [{ voce: ovest.costi.noleggio.voce, importo: 1816 }])
+  assert.deepEqual(d.carburante, { km: 2300, litri: 288, importo: 244.38 })
+  assert.deepEqual(datiPagina({ costi: { extra: [{ voce: 'Pulizie', importo: null }] } }).extra, [{ voce: 'Pulizie', importo: null }])
+  assert.deepEqual(datiPagina({ slug: 'x' }), { versione: 1, valuta: 'EUR', coppie: null, adultiInVolo: null, partenze: null, accesso: null, alloggi: null, extra: [], carburante: null, rientro: null, playlist: null })
 })
