@@ -168,6 +168,97 @@ export const viaggi = [
     },
   },
   {
+    // Seguito del viaggio breve per la sola coppia che ospita: gli altri tornano a casa da Bozeman il 29.
+    slug: 'ovest-2027-glacier',
+    titolo: 'Glacier, il prolungamento in due',
+    date: '29 luglio – 2 agosto 2027',
+    luoghi: 'Flathead Lake, Glacier',
+    nota: 'Prolungamento del viaggio in sei: solo per chi ospita',
+    // Stessa playlist Spotify dell'Ovest; in pagina la scaletta dei tragitti di questi giorni.
+    playlistDi: 'ovest-2027',
+    // Viaggio in dollari: i bot cercano in USD e la pagina mostra in USD.
+    valuta: 'USD',
+    // Niente ricerca periodica: con lo schedule i voli salirebbero a 19 ricerche per esecuzione
+    // (304 al mese). Una sola rilevazione lanciata a mano con --slug (workflow, input slug).
+    voli: {
+      attivo: false,
+      adulti: 2,
+      // Il biglietto vero di chi ospita: Denver → Jackson Hole il 20 (inizio del viaggio in sei)
+      // e Kalispell → Denver il 2 agosto, al posto del Bozeman → Denver del 29.
+      andata: { da: ['DEN'], a: ['JAC'], date: ['2027-07-20'] },
+      ritorno: { da: ['FCA'], a: ['DEN'], date: ['2027-08-02'] },
+      gl: 'us', // Google Flights dal mercato USA: si parte da Denver
+      // Auto propria fino a DEN (benzina non stimata) + Pikes Peak lot 10 $/giorno × 14 giorni (tariffa 2025, da riverificare).
+      accesso: { DEN: { auto: 0, parcheggio: 140 } },
+      // Per confronto: ritorno da Missoula o da Bozeman (public/<slug>/voli-mso.csv, voli-bzn.csv).
+      alternative: [
+        {
+          id: 'mso',
+          nome: 'Ritorno da Missoula',
+          // ore di auto da OSRM
+          descrizione:
+            'Si riparte da Missoula, con l’auto riconsegnata lì: l’ultimo giorno circa 5 ore e 15 di auto da Many Glacier, senza il giro di Two Medicine, invece delle 3 ore e 15 fino a Kalispell passando da Two Medicine.',
+          andata: { da: ['DEN'], a: ['JAC'], date: ['2027-07-20'] },
+          ritorno: { da: ['MSO'], a: ['DEN'], date: ['2027-08-02'] },
+        },
+        {
+          id: 'bzn',
+          nome: 'Ritorno da Bozeman',
+          descrizione:
+            'Si torna a Bozeman, dove l’auto è stata ritirata: l’ultimo giorno circa 6 ore e 20 di auto da Many Glacier, senza il giro di Two Medicine, invece delle 3 ore e 15 fino a Kalispell passando da Two Medicine.',
+          andata: { da: ['DEN'], a: ['JAC'], date: ['2027-07-20'] },
+          ritorno: { da: ['BZN'], a: ['DEN'], date: ['2027-08-02'] },
+        },
+      ],
+    },
+    alloggi: {
+      attivo: false,
+      adulti: 2,
+      camere: 1,
+      bagni: 1,
+      // Per due basta un'unità: monolocali (0 camere) e camere d'albergo senza conteggio non si scartano.
+      monolocali: true,
+      fonti: ['airbnb', 'booking'],
+      // Booking: anche hotel, B&B, guest house, lodge e inn (come Big Island): sul lato est le case sono poche.
+      tipi: ['201', '220', '204', '208', '216', '221', '218'],
+      paese: 'us',
+      raggioKm: 25,
+      tappe: [
+        {
+          // Centro tra Columbia Falls e West Glacier: Hungry Horse, Coram, Martin City.
+          id: 'ovest', nome: 'West Glacier', q: 'West Glacier, Montana, USA', centro: [48.43, -114.05], dal: '2027-07-29', al: '2027-07-31',
+          nota: 'Lato ovest del parco: cerco tra Columbia Falls, Hungry Horse e West Glacier.',
+        },
+        {
+          id: 'est', nome: 'St. Mary', q: 'St. Mary, Montana, USA', centro: [48.745, -113.43], raggioKm: 40, dal: '2027-07-31', al: '2027-08-02',
+          nota: 'Prima scelta: dormire dentro Many Glacier (Many Glacier Hotel o Swiftcurrent Motor Inn, solo su glaciernationalparklodges.com, con mesi di anticipo). Qui cerco il ripiego entro 40 km: St. Mary, Babb, East Glacier.',
+        },
+      ],
+    },
+    costi: {
+      coppie: 1,
+      // Il SUV a 7 posti si riconsegna a Bozeman il 29 (sta nel conto del viaggio breve).
+      noleggio: { voce: 'Noleggio auto media, Bozeman (BZN) → Kalispell (FCA), 29 luglio – 2 agosto, solo andata', importo: null },
+      // km da OSRM (somma dei giorni 10–14); auto media ~8 l/100 km; benzina Montana ~3,80 $/gal ≈ 1,00 $/l (stima).
+      carburante: { km: 992, litriPer100: 8, prezzoLitro: 1 },
+      // Ingressi ai parchi nazionali esclusi: coperti dal pass America the Beautiful.
+      extra: [
+        { voce: 'Battelli di Many Glacier, Glacier Park Boat Co. (2 × ~40 $, andata e ritorno, da verificare)', importo: 80 },
+      ],
+      // Costi degli scenari di voli.alternative (stessi litri e prezzo al litro, km diversi).
+      alternative: {
+        mso: {
+          noleggio: { voce: 'Noleggio auto media, Bozeman (BZN) → Missoula (MSO), 29 luglio – 2 agosto, solo andata', importo: null },
+          carburante: { km: 1148 }, // km da OSRM: giorni 10–13 come il principale, poi Many Glacier → Missoula diretto
+        },
+        bzn: {
+          noleggio: { voce: 'Noleggio auto media, Bozeman (BZN) andata e ritorno, 29 luglio – 2 agosto', importo: null },
+          carburante: { km: 1273 }, // km da OSRM: giorni 10–13 come il principale, poi Many Glacier → Bozeman diretto
+        },
+      },
+    },
+  },
+  {
     slug: 'ovest-2027',
     titolo: 'Due settimane nell’Ovest, in sei',
     date: '15–29 luglio 2027',

@@ -627,3 +627,74 @@ describe('Big Island: viaggio non attivo, rilevazione una tantum con --slug', ()
     assert.equal(existsSync(path.join(d, 'big-island-2027')), false)
   })
 })
+
+describe('Glacier: prolungamento di chi ospita, non attivo, rilevazione una tantum con --slug', () => {
+  const gl = viaggi.find((v) => v.slug === 'ovest-2027-glacier')
+  const dir = mkdtempSync(path.join(tmpdir(), 'voli-glacier-'))
+  after(() => rmSync(dir, { recursive: true, force: true }))
+  const base = { viaggi, apiKey: 'fixture', ritardoRetry: 0, now: '2026-10-30T05:17:00Z' }
+  const col = (x, k) => x[HEADER.indexOf(k)]
+  const cli = (...args) =>
+    spawnSync(process.execPath, [path.join(QUI, 'voli.mjs'), '--dry-run', ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, SERPAPI_KEY: '', VOLI_NOW: '2026-10-30T05:17:00Z' },
+    })
+
+  test('subito dopo il viaggio breve; spento: lo schedule cerca ancora solo il breve', () => {
+    assert.equal(viaggi[viaggi.indexOf(breve) + 1], gl)
+    assert.equal(gl.voli.attivo, false)
+    assert.deepEqual(attivi(viaggi, '2026-10-30').map((v) => v.slug), ['ovest-2027-short'])
+    assert.equal(stimaBudget(attivi(viaggi, '2026-10-30'), '2026-10-30').perEsecuzione, 13)
+  })
+
+  test('tre scenari (Kalispell, Missoula, Bozeman), stessa andata DEN → JAC, 2 ricerche ciascuno', () => {
+    const s = scenari(gl)
+    assert.deepEqual(s.map((x) => [x.id, x.csv, x.voli.ritorno.da[0]]), [['', 'voli.csv', 'FCA'], ['mso', 'voli-mso.csv', 'MSO'], ['bzn', 'voli-bzn.csv', 'BZN']])
+    for (const x of s) {
+      assert.deepEqual(coppie(x.voli, '2026-10-30'), [{ andata: '2027-07-20', ritorno: '2027-08-02' }])
+      assert.deepEqual([x.voli.andata.da, x.voli.andata.a, x.voli.ritorno.a, x.voli.adulti], [['DEN'], ['JAC'], ['DEN'], 2])
+      assert.deepEqual(tratteOspiti(x.voli, '2026-10-30'), [])
+    }
+    assert.deepEqual(stimaBudget([gl], '2026-10-30'), { perEsecuzione: 6, alMese: 96, livello: 'ok' })
+  })
+
+  test('CLI --dry-run --slug ovest-2027-glacier: cercato una volta, 6 ricerche', () => {
+    const r = cli('--slug', 'ovest-2027-glacier')
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /ovest-2027-glacier: non attivo, cercato una volta/)
+    assert.match(r.stdout, /ovest-2027-glacier \(voli\.csv\): 2 adulti, DEN → JAC \/ FCA → DEN, .* = 2 ricerche/)
+    assert.match(r.stdout, /ovest-2027-glacier \[mso\] \(voli-mso\.csv\): .*MSO → DEN.* = 2 ricerche/)
+    assert.match(r.stdout, /ovest-2027-glacier \[bzn\] \(voli-bzn\.csv\): .*BZN → DEN.* = 2 ricerche/)
+    assert.match(r.stdout, /Esecuzione una tantum: 6 ricerche/)
+    assert.doesNotMatch(r.stdout, /al mese/)
+  })
+
+  test('CLI --dry-run senza slug: il viaggio non conta', () => {
+    const r = cli()
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /13 ricerche per esecuzione, circa 208 al mese/)
+    assert.doesNotMatch(r.stdout, /glacier/)
+  })
+
+  test('con slug: tre CSV in dollari dal mercato USA, solo nella cartella del viaggio', async () => {
+    const d = mkdtempSync(path.join(dir, 's-'))
+    const url = []
+    const f0 = fetchFixture(FIXTURE)
+    const fetchImpl = async (u) => {
+      url.push(new URL(u).searchParams)
+      return f0(u)
+    }
+    assert.equal(await esegui({ ...base, slug: 'ovest-2027-glacier', fetchImpl, outDir: d, log: silenzio() }), 0)
+    assert.deepEqual(readdirSync(d), ['ovest-2027-glacier'])
+    assert.deepEqual(readdirSync(path.join(d, 'ovest-2027-glacier')).sort(), ['voli-bzn.csv', 'voli-mso.csv', 'voli.csv'])
+    assert.ok(url.length >= 3 && url.length <= 6, String(url.length))
+    assert.ok(url.every((p) => p.get('currency') === 'USD' && p.get('gl') === 'us' && p.get('adults') === '2'), String(url))
+    const ritorni = url.map((p) => JSON.parse(p.get('multi_city_json'))[1].departure_id)
+    assert.deepEqual([...new Set(ritorni)].sort(), ['BZN', 'FCA', 'MSO'])
+    for (const f of ['voli.csv', 'voli-mso.csv', 'voli-bzn.csv']) {
+      const rows = parseCSV(readFileSync(path.join(d, 'ovest-2027-glacier', f), 'utf8')).slice(1)
+      assert.ok(rows.length > 0, f)
+      assert.ok(rows.every((x) => col(x, 'valuta') === 'USD' && col(x, 'adulti') === '2'), f)
+    }
+  })
+})

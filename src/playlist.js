@@ -339,6 +339,15 @@ const BREVE = [
   ['paradise-valley', 9, 'Gardiner → Mammoth → Chico Hot Springs → Livingston → Bozeman'],
 ]
 
+// Prolungamento a Glacier (giorni 10–14, in due): stessa playlist Spotify, blocchi del lungo
+// riusati sui tragitti nuovi, con titolo e tragitto di questa pagina ([id, giorno, titolo, tragitto]).
+const GLACIER = [
+  ['wyoming', 10, 'Verso nord, la giornata lunga', 'Bozeman → Missoula → Flathead Lake → West Glacier'],
+  ['trail-ridge', 11, 'Going-to-the-Sun Road, sopra le nuvole', 'West Glacier → Logan Pass → Avalanche → Lake McDonald'],
+  ['beartooth', 12, 'Dall’altra parte del Continental Divide', 'West Glacier → Logan Pass → St. Mary → Many Glacier'],
+  ['estes-park', 14, 'Si torna a casa', 'Many Glacier → Two Medicine → Marias Pass → aeroporto di Kalispell'],
+]
+
 export const playlist = {
   'ovest-2027': lungo,
   'ovest-2027-short': {
@@ -349,6 +358,11 @@ export const playlist = {
       return { ...b, giorno, tragitto: tragitto ?? b.tragitto }
     }),
   },
-  // Dopo i due dell'Ovest: scripts/spotify.mjs senza --slug usa la prima voce.
+  'ovest-2027-glacier': {
+    nome: lungo.nome,
+    descrizione: 'La playlist è quella del viaggio lungo, qui la scaletta dei tragitti verso Glacier.',
+    blocchi: GLACIER.map(([id, giorno, titolo, tragitto]) => ({ ...lungo.blocchi.find((x) => x.id === id), giorno, titolo, tragitto })),
+  },
+  // Dopo quelle dell'Ovest: scripts/spotify.mjs senza --slug usa la prima voce.
   'big-island-2027': bigIsland,
 }

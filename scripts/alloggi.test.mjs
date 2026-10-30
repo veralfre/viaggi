@@ -409,3 +409,47 @@ describe('Big Island: viaggio non attivo, rilevazione una tantum con --slug', ()
     assert.ok(rows.every((x) => col(x, 'valuta') === 'USD' && col(x, 'fonte') === 'booking'))
   })
 })
+
+describe('Glacier: prolungamento di chi ospita, non attivo, rilevazione una tantum con --slug', () => {
+  const gl = viaggi.find((v) => v.slug === 'ovest-2027-glacier')
+  const cli = (...args) =>
+    spawnSync(process.execPath, [path.join(QUI, 'alloggi.mjs'), '--dry-run', ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, SERPAPI_KEY_ALLOGGI: '', ALLOGGI_NOW: '2026-10-30T05:17:00Z' },
+    })
+
+  test('spento, due basi consecutive di 2 notti dal 29 luglio al 2 agosto: 4 ricerche', () => {
+    assert.equal(gl.alloggi.attivo, false)
+    assert.deepEqual(attivi(viaggi, '2026-10-30').map((v) => v.slug), ['ovest-2027-short'])
+    assert.deepEqual(tappe(gl.alloggi, '2026-10-30').map((t) => [t.id, t.dal, t.al]), [
+      ['ovest', '2027-07-29', '2027-07-31'],
+      ['est', '2027-07-31', '2027-08-02'],
+    ])
+    // la prima notte è quella in cui il viaggio breve finisce a Bozeman
+    assert.equal(gl.alloggi.tappe[0].dal, breve.alloggi.tappe.at(-1).al)
+    assert.deepEqual(stimaBudget([gl], '2026-10-30'), { perEsecuzione: 4, alMese: 64, livello: 'ok' })
+    assert.deepEqual([raggioDi(gl.alloggi, gl.alloggi.tappe[0]), raggioDi(gl.alloggi, gl.alloggi.tappe[1])], [25, 40])
+    // la base est copre Babb, Many Glacier ed East Glacier (37 km in linea d'aria)
+    for (const p of [[48.858, -113.417], [48.797, -113.657], [48.442, -113.218]]) assert.ok(distanzaKm(gl.alloggi.tappe[1].centro, p) < 40, String(p))
+    assert.equal(parametri('booking', gl.alloggi, gl.alloggi.tappe[1]).get('property_types'), '201,220,204,208,216,221,218')
+    assert.equal(gl.alloggi.monolocali, true)
+  })
+
+  test('CLI --dry-run --slug ovest-2027-glacier: cercato una volta, 4 ricerche', () => {
+    const r = cli('--slug', 'ovest-2027-glacier')
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /ovest-2027-glacier: non attivo, cercato una volta/)
+    assert.match(r.stdout, /2 tappe × 2 fonti \(airbnb, booking\) = 4 ricerche/)
+    assert.match(r.stdout, /ovest: .*2027-07-29 → 2027-07-31 \(2 notti, entro 25 km/)
+    assert.match(r.stdout, /est: .*2027-07-31 → 2027-08-02 \(2 notti, entro 40 km/)
+    assert.match(r.stdout, /Esecuzione una tantum alloggi: 4 ricerche/)
+    assert.doesNotMatch(r.stdout, /al mese/)
+  })
+
+  test('CLI --dry-run senza slug: il viaggio non conta', () => {
+    const r = cli()
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /8 ricerche per esecuzione, circa 128 al mese/)
+    assert.doesNotMatch(r.stdout, /glacier/)
+  })
+})

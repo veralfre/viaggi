@@ -134,3 +134,40 @@ test('datiPagina del viaggio breve: 9 notti dal 20 al 29, noleggio da definire, 
   assert.deepEqual(a.noleggio, { voce: breve.costi.alternative.slc.noleggio.voce, importo: null })
   assert.match(a.descrizione, /Salt Lake City/)
 })
+
+test('datiPagina di Glacier: dollari, una coppia, rilevazione unica, 4 notti dal 29 luglio, scenari Missoula e Bozeman', () => {
+  const gl = viaggi.find((v) => v.slug === 'ovest-2027-glacier')
+  assert.equal(viaggi[viaggi.indexOf(breve) + 1], gl)
+  const d = datiPagina(gl, { playlist: playlist[gl.slug], generi: GENERI })
+  assert.equal(d.valuta, 'USD')
+  assert.deepEqual(d.aggiornamento, { voli: false, alloggi: false })
+  assert.equal(d.coppie, 1)
+  assert.equal(d.adultiInVolo, 2)
+  assert.deepEqual([d.partenze, d.arrivo, d.ritornoDa], [['DEN'], ['JAC'], ['FCA']])
+  assert.deepEqual(d.accesso, { aeroporti: { DEN: { auto: 0, parcheggio: 140 } }, persona: { DEN: 70 } })
+  const t = d.alloggi.tappe
+  assert.deepEqual(t.map((x) => [x.id, x.dal, x.al, x.notti]), [['ovest', '2027-07-29', '2027-07-31', 2], ['est', '2027-07-31', '2027-08-02', 2]])
+  assert.equal(t[0].dal, breve.alloggi.tappe.at(-1).al)
+  assert.deepEqual([d.alloggi.adulti, d.alloggi.camere, d.alloggi.bagni], [2, 1, 1])
+  assert.deepEqual(t.map((x) => x.raggioKm), [25, 40])
+  assert.match(t[1].nota, /Many Glacier/)
+  assert.deepEqual(d.extra[0], { voce: gl.costi.noleggio.voce, importo: null })
+  assert.match(d.extra[0].voce, /Bozeman.*Kalispell.*solo andata/)
+  assert.ok(d.extra.every((e) => !/nazional/i.test(e.voce)), JSON.stringify(d.extra))
+  assert.deepEqual(d.carburante, carburante(gl.costi.carburante))
+  assert.deepEqual([d.ospiti, d.rientro], [[], null])
+  assert.deepEqual(d.alternative.map((a) => [a.id, a.csv, a.partenze, a.arrivo, a.ritornoDa]), [
+    ['mso', 'voli-mso.csv', ['DEN'], ['JAC'], ['MSO']],
+    ['bzn', 'voli-bzn.csv', ['DEN'], ['JAC'], ['BZN']],
+  ])
+  for (const a of d.alternative) {
+    assert.deepEqual(a.carburante, carburante(gl.costi.carburante, gl.costi.alternative[a.id].carburante.km))
+    assert.ok(a.carburante.km > d.carburante.km, a.id)
+    assert.deepEqual(a.noleggio, { voce: gl.costi.alternative[a.id].noleggio.voce, importo: null })
+    assert.deepEqual(a.ospiti, [])
+  }
+  assert.ok(d.alternative[1].carburante.km > d.alternative[0].carburante.km)
+  assert.match(d.alternative[0].descrizione, /Missoula/)
+  assert.match(d.alternative[1].descrizione, /Bozeman/)
+  assert.deepEqual(d.playlist.blocchi.map((b) => b.giorno), [10, 11, 12, 14])
+})

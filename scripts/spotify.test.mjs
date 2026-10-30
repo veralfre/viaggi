@@ -155,3 +155,27 @@ test('CLI --dry-run senza rete', () => {
   assert.equal(r.status, 0, r.stderr)
   assert.match(r.stdout, /\d{3} brani in 6 blocchi/)
 })
+
+test('Glacier: blocchi del lungo sui tragitti nuovi, giorni 10–14, stessa playlist Spotify', () => {
+  const gl = playlist['ovest-2027-glacier']
+  const breve = playlist['ovest-2027-short']
+  assert.equal(Object.keys(playlist)[0], 'ovest-2027')
+  assert.deepEqual(gl.blocchi.map((b) => [b.id, b.giorno]), [['wyoming', 10], ['trail-ridge', 11], ['beartooth', 12], ['estes-park', 14]])
+  for (const b of gl.blocchi) {
+    assert.ok(b.giorno >= 10 && b.giorno <= 14)
+    // brani della playlist Spotify del lungo, titolo e tragitto di questa pagina
+    assert.deepEqual(b.brani, ovest.blocchi.find((x) => x.id === b.id).brani)
+    assert.ok(b.titolo && b.tragitto)
+    assert.notEqual(b.tragitto, ovest.blocchi.find((x) => x.id === b.id).tragitto)
+  }
+  // il lungo e il breve non cambiano
+  assert.deepEqual(ovest.blocchi.map((b) => b.giorno), [2, 4, 5, 8, 12, 14])
+  assert.deepEqual(breve.blocchi.map((b) => [b.id, b.giorno]), [['yellowstone', 4], ['beartooth', 8], ['paradise-valley', 9]])
+  const chiavi = brani(gl).map((b) => normalizza(b.artista + ' ' + b.titolo))
+  assert.equal(new Set(chiavi).size, chiavi.length)
+  assert.match(gl.descrizione, /viaggio lungo/)
+  assert.equal(playlistDi('ovest-2027-glacier'), 'ovest-2027')
+  const r = spawnSync(process.execPath, [path.join(QUI, 'spotify.mjs'), '--dry-run', '--slug', 'ovest-2027-glacier'], { encoding: 'utf8', env: { ...process.env, SPOTIFY_CLIENT_ID: '' } })
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stdout, /Usa la playlist di ovest-2027/)
+})

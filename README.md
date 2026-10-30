@@ -4,7 +4,7 @@ Itinerari di viaggio pubblicati su GitHub Pages: https://veralfre.github.io/viag
 
 Home in React (Vite) che elenca i viaggi di `src/viaggi.js`. A ogni push su `main` il workflow `.github/workflows/deploy.yml` compila e pubblica il sito.
 
-Viaggi pubblicati: **Big Island 2027** (`big-island-2027`, 17–28 febbraio, in due da Denver: Kona, Hawaiʻi Volcanoes, Mauna Kea, Waimea), in dollari e con i prezzi rilevati una volta sola (voli e alloggi `attivo: false`, vedi «Esecuzione manuale»); **Ovest 2027 breve** (`ovest-2027-short`, 20–29 luglio, Grand Teton e Yellowstone, da Jackson Hole a Bozeman), l'unico con i prezzi attivi, e **Ovest 2027** (`ovest-2027`, la versione lunga da Denver): voli e alloggi disattivati il 2026-10-29, la pagina resta pubblicata con lo storico dei prezzi e un rimando alla versione breve. Il campo facoltativo `nota` di `src/viaggi.js` aggiunge una riga alla scheda della home (es. «Versione lunga: prezzi non più aggiornati»).
+Viaggi pubblicati: **Big Island 2027** (`big-island-2027`, 17–28 febbraio, in due da Denver: Kona, Hawaiʻi Volcanoes, Mauna Kea, Waimea), in dollari e con i prezzi rilevati una volta sola (voli e alloggi `attivo: false`, vedi «Esecuzione manuale»); **Ovest 2027 breve** (`ovest-2027-short`, 20–29 luglio, Grand Teton e Yellowstone, da Jackson Hole a Bozeman), l'unico con i prezzi attivi; **Glacier 2027** (`ovest-2027-glacier`, 29 luglio – 2 agosto, Flathead Lake e Glacier), il prolungamento del viaggio breve per la sola coppia che ospita, da Bozeman con ritorno a Denver da Kalispell (scenari Missoula e Bozeman), in dollari e con i prezzi rilevati una volta sola come Big Island; e **Ovest 2027** (`ovest-2027`, la versione lunga da Denver): voli e alloggi disattivati il 2026-10-29, la pagina resta pubblicata con lo storico dei prezzi e un rimando alla versione breve. Il campo facoltativo `nota` di `src/viaggi.js` aggiunge una riga alla scheda della home (es. «Versione lunga: prezzi non più aggiornati»).
 
 ```sh
 npm install
@@ -112,11 +112,13 @@ gh workflow run voli.yml -f calibra=true # verifica se il prezzo di Google è to
 gh workflow run voli.yml -f slug=big-island-2027  # un solo viaggio, anche se non attivo
 ```
 
-Con l'input `slug` (in locale `--slug <slug>`, per `voli.mjs` e `alloggi.mjs`) si cerca **un solo viaggio, anche se ha `attivo: false`**, purché abbia date future: è la rilevazione una tantum di un viaggio che non si segue nel tempo. Costa le sue ricerche una volta sola (Big Island: 2 voli, 3 alloggi), fuori dal conto mensile dei viaggi attivi; il dry-run lo scrive («Esecuzione una tantum»), e i limiti (avviso sopra 220, stop sopra 250) valgono per quella sola esecuzione, non × 16. Il workflow accetta solo slug fatti di lettere minuscole, cifre e trattini. Lo schedule non passa `slug` e ignora i viaggi non attivi. Lo slug arriva al comando tramite una variabile d'ambiente, mai interpolato nello script del workflow. Per vedere il piano senza chiamate:
+Con l'input `slug` (in locale `--slug <slug>`, per `voli.mjs` e `alloggi.mjs`) si cerca **un solo viaggio, anche se ha `attivo: false`**, purché abbia date future: è la rilevazione una tantum di un viaggio che non si segue nel tempo. Costa le sue ricerche una volta sola (Big Island: 2 voli, 3 alloggi; Glacier: 6 voli, tre scenari da 2, e 4 alloggi), fuori dal conto mensile dei viaggi attivi; il dry-run lo scrive («Esecuzione una tantum»), e i limiti (avviso sopra 220, stop sopra 250) valgono per quella sola esecuzione, non × 16. Il workflow accetta solo slug fatti di lettere minuscole, cifre e trattini. Lo schedule non passa `slug` e ignora i viaggi non attivi. Lo slug arriva al comando tramite una variabile d'ambiente, mai interpolato nello script del workflow. Per vedere il piano senza chiamate:
 
 ```sh
 node scripts/voli.mjs --dry-run --slug big-island-2027     # 2 ricerche
 node scripts/alloggi.mjs --dry-run --slug big-island-2027  # 3 ricerche
+node scripts/voli.mjs --dry-run --slug ovest-2027-glacier     # 6 ricerche
+node scripts/alloggi.mjs --dry-run --slug ovest-2027-glacier  # 4 ricerche
 ```
 
 Lo script assume che il prezzo restituito sia il **totale** per tutti gli adulti e lo divide (`PREZZO_BASE` in `scripts/voli.mjs`). La calibrazione confronta la stessa ricerca con N adulti e con 1 adulto e dice se va cambiato.
@@ -234,7 +236,7 @@ costi: {
 
 Il prezzo al litro si scrive in `prezzoLitro`, nella valuta del viaggio (`euroLitro` è il vecchio nome, ancora accettato). La build calcola la benzina (`km × litriPer100 / 100 × prezzoLitro`) e la mette in `viaggio.json` con il noleggio (che finisce tra gli extra, anche senza importo). Gli extra con `importo: null` restano «da definire» e fuori dalla somma, e il totale è marcato parziale finché manca qualcosa (tappe senza prezzo, ritorno non verificato, voli di chi ospita da rilevare, noleggio o extra da definire). Non compresi: pasti, attività e ingressi a pagamento, ESTA, assicurazione, bagaglio da stiva se non incluso, eventuali pulizie o tasse non comprese nel prezzo mostrato.
 
-Con `coppie: 1` (Big Island) non c'è niente da dividere: la pagina mostra una sola colonna «Per noi due» con la quota a testa, il parcheggio a Denver al posto dell'accesso da Bologna, e gli extra della ricerca (tour, uscite in mare, parchi statali; gli ingressi ai parchi nazionali sono coperti dal pass America the Beautiful e non ci sono).
+Con `coppie: 1` (Big Island, Glacier) non c'è niente da dividere: la pagina mostra una sola colonna «Per noi due» con la quota a testa, il parcheggio a Denver al posto dell'accesso da Bologna, e gli extra della ricerca (tour, uscite in mare, parchi statali; gli ingressi ai parchi nazionali sono coperti dal pass America the Beautiful e non ci sono).
 
 ## Playlist del viaggio
 
@@ -242,7 +244,7 @@ La sezione «Playlist del viaggio» della pagina mostra il player di Spotify (qu
 
 Big Island ha una playlist sua (`big-island-2027`, quattro tragitti, genere nuovo `isole`), dopo le due dell'Ovest in `src/playlist.js` (lo script senza `--slug` usa la prima voce). Senza ID in `src/spotify.json` la pagina mostra solo la scaletta: `SPOTIFY_CLIENT_ID=<client id> node scripts/spotify.mjs --slug big-island-2027` la crea, e i brani non trovati si correggono in `src/playlist.js`.
 
-Un viaggio può usare la playlist di un altro con `playlistDi: '<slug>'` in `src/viaggi.js`: la build prende l'ID di quello slug. La versione breve fa così (`playlistDi: 'ovest-2027'`): stessa playlist Spotify, e in pagina una scaletta che è un sottoinsieme dei blocchi del lungo (i tragitti nei parchi, con i giorni del suo programma). `scripts/spotify.mjs --slug ovest-2027-short` si rifiuta di creare una playlist e rimanda a `--slug ovest-2027`.
+Un viaggio può usare la playlist di un altro con `playlistDi: '<slug>'` in `src/viaggi.js`: la build prende l'ID di quello slug. La versione breve fa così (`playlistDi: 'ovest-2027'`): stessa playlist Spotify, e in pagina una scaletta che è un sottoinsieme dei blocchi del lungo (i tragitti nei parchi, con i giorni del suo programma). Anche Glacier usa `playlistDi: 'ovest-2027'`: riusa quattro blocchi del lungo sui suoi tragitti (giorni 10, 11, 12 e 14), con titolo e tragitto della sua pagina e gli stessi brani. `scripts/spotify.mjs --slug ovest-2027-short` (o `ovest-2027-glacier`) si rifiuta di creare una playlist e rimanda a `--slug ovest-2027`.
 
 ### Creare l'app Spotify (una volta sola)
 
