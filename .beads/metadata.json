@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "viaggi",
+  "project_id": "be71cb95-d26c-42ab-9f43-2db47c54522b"
+}
