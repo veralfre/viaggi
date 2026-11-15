@@ -698,3 +698,55 @@ describe('Glacier: prolungamento di chi ospita, non attivo, rilevazione una tant
     }
   })
 })
+
+describe('Sud America: non attivo, voli interni come tratte ospiti, rilevazione una tantum con --slug', () => {
+  const sa = viaggi.find((v) => v.slug === 'sudamerica-2028')
+  const oggi = '2026-11-15'
+  const cli = (...args) =>
+    spawnSync(process.execPath, [path.join(QUI, 'voli.mjs'), '--dry-run', ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, SERPAPI_KEY: '', VOLI_NOW: oggi + 'T05:17:00Z' },
+    })
+
+  test('primo della lista; spento: lo schedule cerca ancora solo il viaggio breve', () => {
+    assert.equal(viaggi[0], sa)
+    assert.equal(sa.voli.attivo, false)
+    assert.equal(sa.voli.gl, 'us')
+    assert.deepEqual(attivi(viaggi, oggi).map((v) => v.slug), ['ovest-2027-short'])
+    assert.equal(stimaBudget(attivi(viaggi, oggi), oggi).perEsecuzione, 13)
+  })
+
+  test('1 coppia di date + 1 aeroporto + 9 voli interni = 11 ricerche, una per tratta di sola andata', () => {
+    assert.deepEqual(coppie(sa.voli, oggi), [{ andata: '2028-04-07', ritorno: '2028-05-16' }])
+    assert.deepEqual(scenari(sa).map((s) => s.csv), ['voli.csv'])
+    const t = tratteOspiti(sa.voli, oggi)
+    assert.equal(t.length, 9)
+    assert.ok(t.every((x) => x.tipo === 'ospiti' && x.adulti === 2))
+    // in ordine di data, come nel programma
+    const date = t.map((x) => x.data)
+    assert.deepEqual(date, [...date].sort())
+    const p = parametriOspiti(t[0], t[0].data, { currency: 'USD', gl: sa.voli.gl })
+    assert.deepEqual([p.get('type'), p.get('departure_id'), p.get('arrival_id'), p.get('outbound_date'), p.get('adults'), p.get('currency'), p.get('gl')], [
+      '2', 'FTE', 'IGR', '2028-04-16', '2', 'USD', 'us',
+    ])
+    assert.deepEqual(stimaBudget([sa], oggi), { perEsecuzione: 11, alMese: 176, livello: 'ok' })
+  })
+
+  test('CLI --dry-run --slug sudamerica-2028: cercato una volta, 11 ricerche, 9 tratte di sola andata', () => {
+    const r = cli('--slug', 'sudamerica-2028')
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /sudamerica-2028: non attivo, cercato una volta/)
+    assert.match(r.stdout, /sudamerica-2028 \(voli\.csv\): 2 adulti, DEN → PUQ,PNT \/ GYE → DEN, 1 coppie .* \+ 9 voli di chi ospita = 11 ricerche/)
+    assert.equal(r.stdout.match(/solo andata/g).length, 9)
+    assert.match(r.stdout, /\(cuz-gua\): CUZ → GUA 2028-05-07/)
+    assert.match(r.stdout, /Esecuzione una tantum: 11 ricerche/)
+    assert.doesNotMatch(r.stdout, /al mese/)
+  })
+
+  test('CLI --dry-run senza slug: il viaggio non conta', () => {
+    const r = cli()
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /13 ricerche per esecuzione, circa 208 al mese/)
+    assert.doesNotMatch(r.stdout, /sudamerica/)
+  })
+})

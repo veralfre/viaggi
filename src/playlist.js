@@ -2,7 +2,7 @@
 // macchina tutti insieme (giorno = numero del giorno nel programma della pagina).
 // Brano = [artista, titolo, genere]; generi: classici (road trip USA), rock
 // (rock/indie 2000-2020), italiani, pop (da cantare), epici (grandi spazi e colonne sonore),
-// isole (Hawaii e dintorni).
+// isole (Hawaii e dintorni), latino (Sud America, dal folk andino alla bossa nova).
 // scripts/spotify.mjs crea o aggiorna la playlist su Spotify da qui; l'ID va in src/spotify.json.
 export const GENERI = {
   classici: 'Classici da road trip USA',
@@ -11,6 +11,7 @@ export const GENERI = {
   pop: 'Pop da cantare',
   epici: 'Epici da grandi spazi',
   isole: 'Musica delle isole',
+  latino: 'Musica latinoamericana',
 }
 
 // Viaggio lungo (15–29 luglio, da Denver a Bozeman): la playlist Spotify è questa.
@@ -348,6 +349,161 @@ const GLACIER = [
   ['estes-park', 14, 'Si torna a casa', 'Many Glacier → Two Medicine → Marias Pass → aeroporto di Kalispell'],
 ]
 
+// Sud America (7 aprile – 16 maggio 2028, in due): playlist nuova, sui tragitti lunghi su strada,
+// sulla jeep del salar e in treno. Giorni del programma della pagina.
+const sudamerica = {
+  nome: 'Sud America 2028 · dalla Patagonia alle Galápagos',
+  descrizione: 'Per i tragitti lunghi del viaggio di nozze: la steppa patagonica, le dune del Maranhão, la jeep del salar, il treno dell’altipiano. Finestrino a chi lo vuole.',
+  blocchi: [
+    {
+      id: 'patagonia',
+      giorno: 5,
+      titolo: 'Dal Paine al Calafate, la steppa e il vento',
+      tragitto: 'Torres del Paine → Cerro Castillo → frontiera → El Calafate',
+      brani: [
+        ['Gustavo Santaolalla', 'De Ushuaia a La Quiaca', 'epici'],
+        ['Gustavo Santaolalla', 'Apertura', 'epici'],
+        ['Mercedes Sosa', 'Gracias a la vida', 'latino'],
+        ['Soda Stereo', 'De música ligera', 'latino'],
+        ['Los Jaivas', 'Todos juntos', 'latino'],
+        ['Simon & Garfunkel', 'El Cóndor Pasa (If I Could)', 'classici'],
+        ['Fleetwood Mac', 'Landslide', 'classici'],
+        ['Coldplay', 'Yellow', 'rock'],
+        ['Fabrizio De André', 'Il pescatore', 'italiani'],
+        ['Hans Zimmer', 'No Time for Caution', 'epici'],
+        ['Bon Iver', 'Skinny Love', 'rock'],
+        ['Lucio Battisti', 'La canzone del sole', 'italiani'],
+      ],
+    },
+    {
+      id: 'chalten',
+      giorno: 7,
+      titolo: 'Verso il Fitz Roy',
+      tragitto: 'El Calafate → La Leona → El Chaltén',
+      brani: [
+        ['Ennio Morricone', 'Gabriel\'s Oboe', 'epici'],
+        ['Sigur Rós', 'Glósóli', 'epici'],
+        ['Violeta Parra', 'Volver a los 17', 'latino'],
+        ['Charly García', 'Demoliendo hoteles', 'latino'],
+        ['Fito Páez', 'Mariposa Tecknicolor', 'latino'],
+        ['The Lumineers', 'Ophelia', 'rock'],
+        ['Mumford & Sons', 'The Cave', 'rock'],
+        ['U2', 'With or Without You', 'classici'],
+        ['Franco Battiato', 'Centro di gravità permanente', 'italiani'],
+        ['Jovanotti', 'A te', 'italiani'],
+        ['Ed Sheeran', 'Thinking Out Loud', 'pop'],
+        ['Explosions in the Sky', 'First Breath After Coma', 'epici'],
+      ],
+    },
+    {
+      id: 'lencois',
+      giorno: 13,
+      titolo: 'Quattro ore verso le dune',
+      tragitto: 'São Luís → Barreirinhas',
+      brani: [
+        ['Antônio Carlos Jobim', 'Águas de Março', 'latino'],
+        ['Astrud Gilberto', 'The Girl from Ipanema', 'latino'],
+        ['Jorge Ben Jor', 'Mas Que Nada', 'latino'],
+        ['Caetano Veloso', 'Sozinho', 'latino'],
+        ['Seu Jorge', 'Burguesinha', 'latino'],
+        ['Gilberto Gil', 'Aquele Abraço', 'latino'],
+        ['Marisa Monte', 'Ainda Bem', 'latino'],
+        ['Bebel Gilberto', 'So Nice (Summer Samba)', 'latino'],
+        ['Paolo Conte', 'Azzurro', 'italiani'],
+        ['Pino Daniele', 'Quando', 'italiani'],
+        ['Bob Marley & The Wailers', 'Is This Love', 'pop'],
+        ['Jack Johnson', 'Banana Pancakes', 'isole'],
+        ['Vampire Weekend', 'Cape Cod Kwassa Kwassa', 'rock'],
+      ],
+    },
+    {
+      id: 'salar',
+      giorno: 18,
+      titolo: 'Tre giorni di jeep tra lagune e sale',
+      tragitto: 'San Pedro → Hito Cajón → Laguna Verde → Laguna Colorada → salar di Uyuni',
+      brani: [
+        ['Pink Floyd', 'Shine On You Crazy Diamond (Pts. 1-5)', 'classici'],
+        ['David Bowie', 'Life on Mars?', 'classici'],
+        ['Vangelis', 'Chariots of Fire', 'epici'],
+        ['Hans Zimmer', 'Day One', 'epici'],
+        ['Max Richter', 'On the Nature of Daylight', 'epici'],
+        ['Los Kjarkas', 'Llorando se fue', 'latino'],
+        ['Los Jaivas', 'Mira niñita', 'latino'],
+        ['Víctor Jara', 'Te recuerdo Amanda', 'latino'],
+        ['Inti-Illimani', 'Alturas', 'latino'],
+        ['Radiohead', 'Karma Police', 'rock'],
+        ['Arctic Monkeys', 'Do I Wanna Know?', 'rock'],
+        ['The Killers', 'When You Were Young', 'rock'],
+        ['Queen', 'Bohemian Rhapsody', 'classici'],
+        ['ABBA', 'Mamma Mia', 'pop'],
+        ['Lucio Dalla', 'L\'anno che verrà', 'italiani'],
+        ['Zucchero', 'Diamante', 'italiani'],
+      ],
+    },
+    {
+      id: 'titicaca',
+      giorno: 22,
+      titolo: 'Sull’altipiano fino al lago',
+      tragitto: 'La Paz → stretto di Tiquina → Copacabana',
+      brani: [
+        ['Manu Chao', 'Me gustas tú', 'latino'],
+        ['Manu Chao', 'Clandestino', 'latino'],
+        ['Juanes', 'La camisa negra', 'latino'],
+        ['Shakira', 'Hips Don\'t Lie', 'pop'],
+        ['Buena Vista Social Club', 'Chan Chan', 'latino'],
+        ['Coldplay', 'Paradise', 'rock'],
+        ['Florence + The Machine', 'Shake It Out', 'rock'],
+        ['Adriano Celentano', 'Il ragazzo della via Gluck', 'italiani'],
+        ['Ludovico Einaudi', 'Nuvole bianche', 'epici'],
+        ['Beirut', 'Elephant Gun', 'rock'],
+        ['Cat Stevens', 'Father and Son', 'classici'],
+      ],
+    },
+    {
+      id: 'treno',
+      giorno: 25,
+      titolo: 'Il treno dell’altipiano, da Puno a Cusco',
+      tragitto: 'Puno → Juliaca → La Raya (4.319 m) → Cusco, in treno',
+      brani: [
+        ['Johnny Cash', 'Folsom Prison Blues', 'classici'],
+        ['Simon & Garfunkel', 'Homeward Bound', 'classici'],
+        ['Cat Stevens', 'Peace Train', 'classici'],
+        ['The Doobie Brothers', 'Long Train Runnin\'', 'classici'],
+        ['Chabuca Granda', 'La flor de la canela', 'latino'],
+        ['Susana Baca', 'Negra presuntuosa', 'latino'],
+        ['Gianmarco', 'Te mentiría', 'latino'],
+        ['Natalia Lafourcade', 'Hasta la raíz', 'latino'],
+        ['Ennio Morricone', 'C\'era una volta il West', 'epici'],
+        ['Francesco Guccini', 'La locomotiva', 'italiani'],
+        ['Fabrizio De André', 'Bocca di rosa', 'italiani'],
+        ['Norah Jones', 'Come Away with Me', 'pop'],
+        ['Iron & Wine', 'Such Great Heights', 'rock'],
+        ['Radiohead', 'No Surprises', 'rock'],
+      ],
+    },
+    {
+      id: 'valle-sacra',
+      giorno: 29,
+      titolo: 'Ollantaytambo, e poi il treno per Machu Picchu',
+      tragitto: 'Urubamba → Ollantaytambo → Aguas Calientes',
+      brani: [
+        ['Los Incas', 'El Cóndor Pasa', 'latino'],
+        ['Gustavo Santaolalla', 'Iguazú', 'epici'],
+        ['Vangelis', 'Conquest of Paradise', 'epici'],
+        ['Juan Luis Guerra', 'Ojalá que llueva café', 'latino'],
+        ['Celia Cruz', 'La vida es un carnaval', 'latino'],
+        ['Carlos Vives', 'La bicicleta', 'latino'],
+        ['Rosalía', 'Malamente', 'pop'],
+        ['Elvis Presley', 'Can\'t Help Falling in Love', 'classici'],
+        ['Eros Ramazzotti', 'Più bella cosa', 'italiani'],
+        ['Andrea Bocelli', 'Con te partirò', 'italiani'],
+        ['Phoenix', 'Lisztomania', 'rock'],
+        ['Bruno Mars', 'Marry You', 'pop'],
+      ],
+    },
+  ],
+}
+
 export const playlist = {
   'ovest-2027': lungo,
   'ovest-2027-short': {
@@ -365,4 +521,5 @@ export const playlist = {
   },
   // Dopo quelle dell'Ovest: scripts/spotify.mjs senza --slug usa la prima voce.
   'big-island-2027': bigIsland,
+  'sudamerica-2028': sudamerica,
 }

@@ -40,7 +40,8 @@ test('valutaDi: codice ISO del viaggio, altrimenti EUR', () => {
 
 test('datiPagina di Big Island: dollari, una coppia, rilevazione unica, 10 notti in tre tappe', () => {
   const big = viaggi.find((v) => v.slug === 'big-island-2027')
-  assert.equal(viaggi[0], big)
+  // subito dopo il Sud America, primo della lista
+  assert.equal(viaggi[1], big)
   const d = datiPagina(big, { playlist: playlist[big.slug], generi: GENERI })
   assert.equal(d.valuta, 'USD')
   assert.deepEqual(d.aggiornamento, { voli: false, alloggi: false })
@@ -170,4 +171,59 @@ test('datiPagina di Glacier: dollari, una coppia, rilevazione unica, 4 notti dal
   assert.match(d.alternative[0].descrizione, /Missoula/)
   assert.match(d.alternative[1].descrizione, /Bozeman/)
   assert.deepEqual(d.playlist.blocchi.map((b) => b.giorno), [10, 11, 12, 14])
+})
+
+test('datiPagina del Sud America: dollari, una coppia, rilevazione unica, 22 tappe con il buco del tour di Uyuni, 9 voli interni', () => {
+  const sa = viaggi.find((v) => v.slug === 'sudamerica-2028')
+  assert.equal(viaggi[0], sa)
+  const d = datiPagina(sa, { playlist: playlist[sa.slug], generi: GENERI })
+  assert.equal(d.valuta, 'USD')
+  assert.deepEqual(d.aggiornamento, { voli: false, alloggi: false })
+  assert.equal(d.coppie, 1)
+  assert.equal(d.adultiInVolo, 2)
+  assert.deepEqual([d.partenze, d.arrivo, d.ritornoDa], [['DEN'], ['PUQ', 'PNT'], ['GYE']])
+  // Uber andata e ritorno, niente parcheggio
+  assert.deepEqual(d.accesso, { aeroporti: { DEN: { auto: 60, parcheggio: 0 } }, persona: { DEN: 60 } })
+  const t = d.alloggi.tappe
+  assert.equal(t.length, 22)
+  assert.equal(t[0].dal, '2028-04-08')
+  assert.equal(t.at(-1).al, '2028-05-16')
+  // consecutive, tranne le due notti del tour di gruppo (comprese nel prezzo del tour)
+  const buchi = []
+  for (let i = 1; i < t.length; i++) if (t[i].dal !== t[i - 1].al) buchi.push([t[i - 1].al, t[i].dal])
+  assert.deepEqual(buchi, [['2028-04-24', '2028-04-26']])
+  // 38 notti dall’8 aprile al 16 maggio, meno le due del tour
+  assert.equal(t.reduce((n, x) => n + x.notti, 0), 36)
+  assert.match(t.find((x) => x.id === 'uyuni').nota, /tour/)
+  assert.match(t.find((x) => x.id === 'antigua').nota, /Acatenango/)
+  // il treno Titicaca parte da Puno solo lunedì, giovedì e sabato: due notti a Puno, treno lunedì 1° maggio
+  const puno = t.find((x) => x.id === 'puno')
+  assert.deepEqual([puno.dal, puno.al], ['2028-04-29', '2028-05-01'])
+  assert.equal(new Date(puno.al + 'T12:00:00Z').getUTCDay(), 1)
+  assert.deepEqual([d.alloggi.adulti, d.alloggi.camere, d.alloggi.bagni], [2, 1, 1])
+  assert.equal(sa.alloggi.paese, undefined)
+  // niente noleggio né benzina: gli extra sono solo le voci a mano, tutte con importo
+  assert.equal(d.carburante, null)
+  assert.equal(sa.costi.noleggio, undefined)
+  assert.ok(d.extra.every((e) => typeof e.importo === 'number' && e.importo > 0), JSON.stringify(d.extra))
+  assert.equal(d.extra.reduce((n, e) => n + e.importo, 0), 5885)
+  assert.ok(d.extra.some((e) => /PeruRail Titicaca/.test(e.voce)))
+  assert.ok(d.extra.some((e) => /Humantay/.test(e.voce)))
+  assert.ok(d.extra.some((e) => /Vinicunca/.test(e.voce)))
+  assert.deepEqual(d.ospiti.map((x) => [x.id, x.da[0], x.a[0], x.date[0], x.adulti]), [
+    ['fte-igr', 'FTE', 'IGR', '2028-04-16', 2],
+    ['igu-slz', 'IGU', 'SLZ', '2028-04-18', 2],
+    ['slz-scl', 'SLZ', 'SCL', '2028-04-21', 2],
+    ['scl-cjc', 'SCL', 'CJC', '2028-04-22', 2],
+    ['uyu-lpb', 'UYU', 'LPB', '2028-04-27', 2],
+    ['cuz-gua', 'CUZ', 'GUA', '2028-05-07', 2],
+    ['gua-gye', 'GUA', 'GYE', '2028-05-10', 2],
+    ['gye-gps', 'GYE', 'GPS', '2028-05-11', 2],
+    ['gps-gye', 'GPS', 'GYE', '2028-05-15', 2],
+  ])
+  assert.ok(d.ospiti.every((x) => x.voce.includes('→')))
+  assert.deepEqual([d.alternative, d.rientro], [[], null])
+  assert.deepEqual(d.playlist.blocchi.map((b) => b.giorno), [5, 7, 13, 18, 22, 25, 29])
+  assert.equal(d.playlist.spotify, null)
+  assert.equal(d.playlist.generi.latino, 'Musica latinoamericana')
 })

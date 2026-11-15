@@ -97,7 +97,7 @@ test('scaletta: almeno 150 brani, nessun doppione, blocchi sui tragitti in macch
   for (const pl of Object.values(playlist)) for (const b of pl.blocchi) for (const x of b.brani) assert.ok(GENERI[x[2]], x.join(' '))
   const usati = new Set(Object.values(playlist).flatMap((pl) => pl.blocchi.flatMap((b) => b.brani.map((x) => x[2]))))
   assert.deepEqual(Object.keys(GENERI).filter((g) => usati.has(g)), Object.keys(GENERI))
-  assert.ok(Object.keys(GENERI).filter((g) => g !== 'isole').every((g) => ovest.blocchi.some((b) => b.brani.some((x) => x[2] === g))))
+  assert.ok(Object.keys(GENERI).filter((g) => g !== 'isole' && g !== 'latino').every((g) => ovest.blocchi.some((b) => b.brani.some((x) => x[2] === g))))
 })
 
 test('Big Island: playlist nuova dopo quelle dell’Ovest, quattro tragitti, almeno 40 brani senza doppioni', () => {
@@ -178,4 +178,31 @@ test('Glacier: blocchi del lungo sui tragitti nuovi, giorni 10–14, stessa play
   const r = spawnSync(process.execPath, [path.join(QUI, 'spotify.mjs'), '--dry-run', '--slug', 'ovest-2027-glacier'], { encoding: 'utf8', env: { ...process.env, SPOTIFY_CLIENT_ID: '' } })
   assert.equal(r.status, 0, r.stderr)
   assert.match(r.stdout, /Usa la playlist di ovest-2027/)
+})
+
+test('Sud America: playlist nuova in fondo, sette tragitti su strada, jeep e treno, genere latino, senza doppioni', () => {
+  const sa = playlist['sudamerica-2028']
+  assert.equal(Object.keys(playlist)[0], 'ovest-2027')
+  assert.equal(Object.keys(playlist).at(-1), 'sudamerica-2028')
+  // Paine → Calafate, Calafate → Chaltén, São Luís → Barreirinhas, jeep del salar (un blocco per i tre giorni),
+  // La Paz → Copacabana, treno Titicaca Puno → Cusco (lunedì 1° maggio), Urubamba → Aguas Calientes
+  assert.deepEqual(sa.blocchi.map((b) => [b.id, b.giorno]), [
+    ['patagonia', 5], ['chalten', 7], ['lencois', 13], ['salar', 18], ['titicaca', 22], ['treno', 25], ['valle-sacra', 29],
+  ])
+  for (const b of sa.blocchi) {
+    assert.ok(b.giorno >= 1 && b.giorno <= 40)
+    assert.ok(b.titolo && b.tragitto)
+    for (const [a, t, g] of b.brani) assert.ok(a && t && GENERI[g], a + ' ' + t + ' ' + g)
+  }
+  assert.equal(GENERI.latino, 'Musica latinoamericana')
+  assert.ok(sa.blocchi.every((b) => b.brani.some((x) => x[2] === 'latino')))
+  const tutti = brani(sa)
+  assert.ok(tutti.length >= 80, String(tutti.length))
+  const chiavi = tutti.map((b) => normalizza(b.artista + ' ' + b.titolo))
+  assert.equal(new Set(chiavi).size, chiavi.length)
+  assert.equal(playlistDi('sudamerica-2028'), null)
+  const r = spawnSync(process.execPath, [path.join(QUI, 'spotify.mjs'), '--dry-run', '--slug', 'sudamerica-2028'], { encoding: 'utf8', env: { ...process.env, SPOTIFY_CLIENT_ID: '' } })
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stdout, /\d+ brani in 7 blocchi/)
+  assert.match(r.stdout, /verrà creata una playlist nuova/)
 })
