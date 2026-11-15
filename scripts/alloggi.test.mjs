@@ -454,7 +454,7 @@ describe('Glacier: prolungamento di chi ospita, non attivo, rilevazione una tant
   })
 })
 
-describe('Sud America: non attivo, 20 tappe in sei paesi, rilevazione una tantum con --slug', () => {
+describe('Sud America: non attivo, 21 tappe in sei paesi, rilevazione una tantum con --slug', () => {
   const sa = viaggi.find((v) => v.slug === 'sudamerica-2028')
   const oggi = '2026-11-15'
   const cli = (...args) =>
@@ -463,15 +463,15 @@ describe('Sud America: non attivo, 20 tappe in sei paesi, rilevazione una tantum
       env: { ...process.env, SERPAPI_KEY_ALLOGGI: '', ALLOGGI_NOW: oggi + 'T05:17:00Z' },
     })
 
-  test('spento, solo Booking, 20 ricerche; nessun paese globale', () => {
+  test('spento, solo Booking, 21 ricerche; nessun paese globale', () => {
     assert.equal(sa.alloggi.attivo, false)
     assert.deepEqual(attivi(viaggi, oggi).map((v) => v.slug), ['ovest-2027-short'])
     assert.deepEqual(sa.alloggi.fonti, ['booking'])
     assert.equal(sa.alloggi.monolocali, true)
     assert.equal(sa.alloggi.paese, undefined)
-    assert.equal(tappe(sa.alloggi, oggi).length, 20)
+    assert.equal(tappe(sa.alloggi, oggi).length, 21)
     // con lo schedule sarebbe oltre il limite mensile: per questo solo una rilevazione una tantum
-    assert.deepEqual(stimaBudget([sa], oggi), { perEsecuzione: 20, alMese: 320, livello: 'errore' })
+    assert.deepEqual(stimaBudget([sa], oggi), { perEsecuzione: 21, alMese: 336, livello: 'errore' })
     // le tappe ripetute (Cusco, Guayaquil) cercano nello stesso posto
     const t = Object.fromEntries(sa.alloggi.tappe.map((x) => [x.id, x]))
     assert.deepEqual([t['cusco-2'].q, t['cusco-2'].centro], [t.cusco.q, t.cusco.centro])
@@ -484,6 +484,9 @@ describe('Sud America: non attivo, 20 tappe in sei paesi, rilevazione una tantum
     assert.equal(raggioDi(sa.alloggi, t.paine), 40)
     assert.ok(distanzaKm(t.paine.centro, [-50.97, -72.87]) < 40) // zona Las Torres
     assert.ok(distanzaKm(t.paine.centro, [-51.13, -73.11]) < 40) // zona Pehoé e Grey
+    assert.ok(distanzaKm(t.paine.centro, [-51.32, -72.97]) < 40) // Villa Serrano, il molo della barca dei fiordi
+    // l'Earth Lodge (El Hato) sta nel raggio di Antigua
+    assert.ok(distanzaKm(t.antigua.centro, [14.585, -90.712]) < raggioDi(sa.alloggi, t.antigua))
     assert.ok(distanzaKm(t['isla-del-sol'].centro, [-16.04, -69.17]) < raggioDi(sa.alloggi, t['isla-del-sol'])) // Yumani
     assert.equal(raggioDi(sa.alloggi, t.calafate), 10)
     // gli hotel di sale al bordo del salar (Colchani) stanno nei 30 km da Uyuni
@@ -499,15 +502,16 @@ describe('Sud America: non attivo, 20 tappe in sei paesi, rilevazione una tantum
     assert.deepEqual(strutture('booking', j, m).map((x) => x.nome), ['Puerto Ayora'])
   })
 
-  test('CLI --dry-run --slug sudamerica-2028: cercato una volta, 20 ricerche', () => {
+  test('CLI --dry-run --slug sudamerica-2028: cercato una volta, 21 ricerche', () => {
     const r = cli('--slug', 'sudamerica-2028')
     assert.equal(r.status, 0, r.stderr)
     assert.match(r.stdout, /sudamerica-2028: non attivo, cercato una volta/)
-    assert.match(r.stdout, /20 tappe × 1 fonti \(booking\) = 20 ricerche/)
-    assert.match(r.stdout, /paine: .*2028-02-09 → 2028-02-12 \(3 notti, entro 40 km/)
+    assert.match(r.stdout, /21 tappe × 1 fonti \(booking\) = 21 ricerche/)
+    assert.match(r.stdout, /paine: .*2028-02-09 → 2028-02-11 \(2 notti, entro 40 km/)
+    assert.match(r.stdout, /puerto-natales: Puerto Natales, Chile, 2028-02-11 → 2028-02-12 \(1 notti, entro 5 km/)
     assert.match(r.stdout, /uyuni: .*2028-02-18 → 2028-02-21 \(3 notti, entro 30 km/)
     assert.match(r.stdout, /san-cristobal: Puerto Baquerizo Moreno, Galápagos, 2028-03-12 → 2028-03-15 \(3 notti, entro 6 km/)
-    assert.match(r.stdout, /Esecuzione una tantum alloggi: 20 ricerche/)
+    assert.match(r.stdout, /Esecuzione una tantum alloggi: 21 ricerche/)
     assert.doesNotMatch(r.stdout, /al mese/)
   })
 

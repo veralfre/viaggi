@@ -68,7 +68,8 @@ export const viaggi = [
         // `zona` = il paese in cui si atterra.
         // eDreams, Aerolíneas Buenos Aires → El Calafate 107–225 $; da Ezeiza o da Aeroparque (stessa ricerca)
         { id: 'eze-fte', voce: 'Volo interno, Buenos Aires → El Calafate', adulti: 2, da: ['EZE', 'AEP'], a: ['FTE'], date: ['2028-02-03'], stima: 400, zona: 'Argentina' },
-        // LATAM SCL–PNT da ~70 $, ~3 voli a settimana in estate; ripiego da Punta Arenas
+        // LATAM SCL–PNT da ~70 $, ~3 voli a settimana in estate; si parte da Natales, a 7 km.
+        // Se PNT non ha voli, bus Natales → Punta Arenas e volo da lì.
         { id: 'pnt-scl', voce: 'Volo interno, Puerto Natales → Santiago (o da Punta Arenas)', adulti: 2, da: ['PNT', 'PUQ'], a: ['SCL'], date: ['2028-02-12'], stima: 300, zona: 'Cile' },
         // Kayak 33–71 $, Momondo 60 $ (Sky, JetSMART, LATAM), bagaglio a parte sulle low cost
         { id: 'scl-cjc', voce: 'Volo interno, Santiago → Calama (per San Pedro de Atacama)', adulti: 2, da: ['SCL'], a: ['CJC'], date: ['2028-02-13'], stima: 160, zona: 'Cile' },
@@ -107,10 +108,17 @@ export const viaggi = [
         { id: 'chalten', nome: 'El Chaltén', q: 'El Chaltén, Argentina', centro: [-49.3315, -72.8863], raggioKm: 8, dal: '2028-02-05', al: '2028-02-08', stimaNotte: 230, zona: 'Argentina' },
         { id: 'calafate-2', nome: 'El Calafate', q: 'El Calafate, Argentina', centro: [-50.3379, -72.2648], dal: '2028-02-08', al: '2028-02-09', stimaNotte: 210, zona: 'Argentina' },
         {
-          // Hotel Lago Grey ~450–500 $ in alta stagione (Trip.com da 504 $, Orbitz 333 $ a maggio 2026); solo camera
-          id: 'paine', nome: 'Torres del Paine', q: 'Torres del Paine, Chile', centro: [-51.0, -72.9], raggioKm: 40, dal: '2028-02-09', al: '2028-02-12',
+          // Hotel Lago Grey ~450–500 $ in alta stagione (Trip.com da 504 $, Orbitz 333 $ a maggio 2026); solo camera.
+          // Meglio nel settore Pehoé/Grey/Río Serrano, vicino al molo della barca dei fiordi (Villa Serrano).
+          id: 'paine', nome: 'Torres del Paine', q: 'Torres del Paine, Chile', centro: [-51.0, -72.9], raggioKm: 40, dal: '2028-02-09', al: '2028-02-11',
           stimaNotte: 520, zona: 'Cile',
-          nota: 'Hotel dentro il parco: cerco entro 40 km dal centro, così entrano sia la zona di Las Torres sia quella del Pehoé e del Grey.',
+          nota: 'Hotel dentro il parco: cerco entro 40 km dal centro, così entrano sia la zona di Las Torres sia quella del Pehoé, del Grey e del Río Serrano.',
+        },
+        {
+          // Travelocity: Weskar ~272 $ il 20–21/2, Big Sur ~135 $, Best Western 176 $ a marzo
+          id: 'puerto-natales', nome: 'Puerto Natales', q: 'Puerto Natales, Chile', centro: [-51.7236, -72.4875], raggioKm: 5, dal: '2028-02-11', al: '2028-02-12',
+          stimaNotte: 230, zona: 'Cile',
+          nota: 'Si arriva in barca dai fiordi; l’aeroporto è a 7 km.',
         },
         {
           // stima: hotel di catena davanti al terminal
@@ -150,7 +158,9 @@ export const viaggi = [
         {
           // stima: hotel boutique 8+ in centro, stagione secca (nessun listino trovato: da verificare)
           id: 'antigua', nome: 'Antigua', q: 'Antigua Guatemala', centro: [14.5586, -90.7295], raggioKm: 6, dal: '2028-03-03', al: '2028-03-07', stimaNotte: 170, zona: 'Guatemala',
-          nota: 'La notte sull’Acatenango teniamo la stanza per i bagagli.',
+          // La notte del 5 marzo all'Earth Lodge (El Hato, ~5 km di strada, dentro il raggio): Panoramic Room per due
+          // ~125 $, ~153 $ con le tasse (Hotels.com, Las Cúpulas at Earth Lodge), simile alla stima della tappa.
+          nota: 'La notte del 5 marzo in un lodge con vista sul Fuego, sulle colline a ~5 km.',
         },
         {
           // stima: hotel di catena vicino al terminal
@@ -187,15 +197,15 @@ export const viaggi = [
         { voce: 'Los Túneles in barca, Isabela (2 × ~150 $)', importo: 300, zona: 'Ecuador e Galápagos' },
         // listino 2025 di un operatore di San Cristóbal (usfq.edu.ec): 170 $ + IVA 15% a testa, max 12; Expedia fino a 257 $
         { voce: 'Kicker Rock (León Dormido) in barca con snorkeling, San Cristóbal (2 × ~200 $)', importo: 400, zona: 'Ecuador e Galápagos' },
-        // andina.pe (tariffe 2026), circuito 3-A con Huayna Picchu
-        { voce: 'Machu Picchu con Huayna Picchu, guida obbligatoria e bus Consettur', importo: 230, zona: 'Perù' },
+        // biglietto S/ 152 + S/ 11 (andina.pe, machupicchu.org, 2026), circuito 2A senza Huayna Picchu
+        { voce: 'Machu Picchu, circuito 2A (classico), guida obbligatoria e bus Consettur', importo: 200, zona: 'Perù' },
         { voce: 'Treno Ollantaytambo ↔ Aguas Calientes, Vistadome andata e ritorno', importo: 360, zona: 'Perù' },
         { voce: 'Valle Sacra con autista in due giorni e boleto turístico', importo: 290, zona: 'Perù' },
         // Guida di terzi (maggio 2026): da ~270 $ a testa in economy, +25% in alta stagione; Magpie da 205 $.
         // perurail.com non pubblica le tariffe fuori dal motore di prenotazione: verificare lì.
         { voce: 'Treno PeruRail Titicaca, Puno → Cusco (2 × ~270 $, pasti compresi)', importo: 540, zona: 'Perù' },
-        // TourRadar: gruppo piccolo ~98 $ a testa (2026); i gruppi grandi partono da ~40 $; ingresso e cavallo a parte se non compresi.
-        { voce: 'Laguna Humantay, gita in giornata da Cusco in gruppo piccolo (2 × ~100 $)', importo: 200, zona: 'Perù' },
+        // TourRadar: gruppo piccolo ~98 $ a testa (2026); cavallo in salita S/ 80–90, ~80% del sentiero (samtravelperu, trexperienceperu).
+        { voce: 'Laguna Humantay, gita in giornata da Cusco in gruppo piccolo (2 × ~100 $) e cavallo in salita (2 × ~25 $)', importo: 250, zona: 'Perù' },
         // nomades.com: Nomades CLP 219.000 a testa; parchi boliviani Avaroa 150 Bs e Incahuasi 30 Bs.
         // Con le piogge Incahuasi spesso si salta e la seconda notte può essere a Uyuni o al bordo del salar.
         { voce: 'Uyuni, tour di gruppo di 3 giorni da San Pedro e ingressi ai parchi boliviani', importo: 525, zona: 'Bolivia' },
@@ -205,7 +215,9 @@ export const viaggi = [
         { voce: 'San Pedro de Atacama: due gite (Valle de la Luna, lagune altiplaniche) e transfer da Calama', importo: 250, zona: 'Cile' },
         { voce: 'San Pedro, tour astronomico (facoltativo, 2 × ~45 $)', importo: 90, zona: 'Cile' },
         { voce: 'Titicaca: bus La Paz → Copacabana, barca e tasse dell’Isla del Sol, bus per Puno', importo: 110, zona: 'Bolivia' },
-        { voce: 'Acatenango, salita con notte al campo (2 × ~110 $) e tassa del parco', importo: 240, zona: 'Guatemala' },
+        // stima: l'ultimo tratto per El Hato è sterrato; pickup o tuk-tuk dal centro. Il volo in elicottero sul Fuego
+        // (facoltativo, ~4.000 $ a volo privato) sta solo in pagina, non nel conto.
+        { voce: 'Transfer Antigua ↔ Earth Lodge in 4x4, andata e ritorno', importo: 40, zona: 'Guatemala' },
         // argentina.gob.ar/parquesnacionales/tarifas
         { voce: 'Perito Moreno: ingresso (2 × ARS 50.000), barca e transfer', importo: 230, zona: 'Argentina' },
         // nuove tariffe CONAF dal 1/5/2026, pasesparques.cl
@@ -213,9 +225,14 @@ export const viaggi = [
         { voce: 'Transfer privato El Calafate → Cerro Castillo → Torres del Paine', importo: 450, zona: 'Argentina' },
         { voce: 'Bus El Calafate ↔ El Chaltén andata e ritorno e transfer aeroporto FTE → El Calafate', importo: 170, zona: 'Argentina' },
         { voce: 'Taxi Ezeiza → Aeroparque, se il volo per El Calafate parte da lì', importo: 50, zona: 'Argentina' },
+        // civitatis: molo a 37 km da El Chaltén, barca 45 min, ARS 45.000 in contanti, da giovedì a martedì alle 12:00
+        { voce: 'Lago del Desierto: navetta da El Chaltén, barca e riserva del Glaciar Huemul (2 × ~75 $)', importo: 150, zona: 'Argentina' },
         { voce: 'Navetta aeroporto di Città del Guatemala ↔ Antigua', importo: 60, zona: 'Guatemala' },
-        // transfer privato parco ↔ Natales CLP 80.000–150.000 a veicolo (dicaschile.com.br); navetta per Las Torres ~CLP 4.000.
-        { voce: 'Transfer dall’hotel del parco all’aeroporto di Puerto Natales, navette nel parco', importo: 180, zona: 'Cile' },
+        // transfer privato nel parco CLP 80.000–150.000 a veicolo (dicaschile.com.br); taxi Natales → PNT, 7 km.
+        { voce: 'Autista nel parco (Laguna Azul e Lago Grey), transfer dall’hotel al molo del Río Serrano e taxi per l’aeroporto di Puerto Natales', importo: 280, zona: 'Cile' },
+        // Turismo 21 de Mayo (tutti i giorni set–apr), Nomades CLP 112.000–132.000 a testa (la pagina Nomades oggi dice «non più
+        // operativa»: verificare). Il vento può annullarla (rimborso). Piano B: Solo Expediciones dall'Hotel del Paine (~307–364 $ a testa).
+        { voce: 'Fiordo Última Esperanza: zodiac sul Río Serrano, ghiacciai Serrano e Balmaceda, pranzo in estancia, arrivo in barca a Puerto Natales (2 × ~150 $)', importo: 300, zona: 'Cile' },
       ],
     },
   },
