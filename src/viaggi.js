@@ -39,50 +39,49 @@ export const viaggi = [
   {
     slug: 'sudamerica-2028',
     titolo: 'Il grand tour del Sud America',
-    date: '7 aprile – 22 maggio 2028',
-    luoghi: 'Patagonia, Iguazú, Lençóis, Uyuni, Titicaca, Machu Picchu, Antigua, Galápagos',
+    date: '2 febbraio – 16 marzo 2028',
+    luoghi: 'Patagonia, Atacama, Uyuni, Titicaca, Machu Picchu, Antigua, Galápagos',
     // Viaggio in dollari: i bot cercano in USD e la pagina mostra in USD.
     valuta: 'USD',
     // Niente ricerca periodica: una sola rilevazione lanciata a mano con --slug (workflow, input slug).
-    // Google Flights mostra i voli solo ~330 giorni avanti: fino a circa maggio 2027 i voli di aprile 2028
-    // non ci sono ancora e la pagina li segna «da rilevare»; gli alloggi si possono già cercare.
+    // Google Flights mostra i voli solo ~330 giorni avanti: l'andata del 2/2/2028 si vede da ~9/3/2027, il ritorno
+    // del 16/3/2028 da ~21/4/2027, quindi la rilevazione va fatta tra marzo e fine aprile 2027. Fino ad allora la
+    // pagina usa le stime; gli alloggi si possono già cercare.
     voli: {
       attivo: false,
       adulti: 2,
-      // Open-jaw: si arriva in Patagonia (Punta Arenas, o Puerto Natales se il volo stagionale c'è) e si torna dalle Galápagos via Guayaquil.
-      andata: { da: ['DEN'], a: ['PUQ', 'PNT'], date: ['2028-04-07'] }, // volo notturno via Santiago, arrivo sabato 8
-      ritorno: { da: ['GYE'], a: ['DEN'], date: ['2028-05-22'] },
+      // Open-jaw: si entra da Buenos Aires (solo scalo) e si torna dalle Galápagos via Guayaquil.
+      andata: { da: ['DEN'], a: ['EZE'], date: ['2028-02-02'] }, // volo notturno, arrivo giovedì 3
+      ritorno: { da: ['GYE'], a: ['DEN'], date: ['2028-03-16'] },
       gl: 'us', // Google Flights dal mercato USA: si parte da Denver
       // Stime (totale per due, USD) finché Google Flights non mostra le date: la pagina le usa al posto del prezzo
-      // rilevato e le segna come stime. Criterio: tariffe più basse viste su Kayak/Expedia/Momondo il 2026-11-15
-      // per la stessa tratta di sola andata, arrotondate in su (~+15–25%) per orari comodi e per il 2028.
-      // Andata: Kayak DEN → PUQ ~651 $ (Expedia LATAM 639 $, Momondo 673 $); ritorno: Kayak GYE → DEN ~290 $
-      // (Orbitz da 220 $). ≈ 2 × (750 + 350).
-      stima: 2200,
-      // Uber per DEN andata e ritorno (~60 $ a tratta, stima): 46 giorni di parcheggio costerebbero ~460 $.
+      // rilevato e le segna come stime. Criterio: tariffe viste su Kayak/Orbitz/Travelocity/FareCompare il 2026-11-15
+      // per la stessa tratta di sola andata, arrotondate in su per orari comodi, l'estate australe e il 2028.
+      // Andata: Kayak DEN → EZE 394 $, Orbitz 486 $, Travelocity 584 $, FareCompare media 512 $ → ~650 $ a testa;
+      // ritorno: Kayak GYE → DEN ~290 $ (Orbitz da 220 $) → ~350 $. ≈ 2 × (650 + 350).
+      stima: 2000,
+      // Uber per DEN andata e ritorno (~60 $ a tratta, stima): 43 giorni di parcheggio costerebbero ~430 $.
       accesso: { DEN: { auto: 60, parcheggio: 0 } },
       // I voli interni sono biglietti di sola andata separati: una ricerca per tratta (righe tipo=ospiti nel CSV).
       ospiti: [
         // `stima` = totale per due (USD), stesso criterio di voli.stima (ricerca del 2026-11-15).
         // `zona` = il paese in cui si atterra.
-        // Expedia AR da 146 $, FareCompare media 158 $
-        { id: 'fte-igr', voce: 'Volo interno, El Calafate → Iguazú (via Buenos Aires)', adulti: 2, da: ['FTE'], a: ['IGR'], date: ['2028-04-16'], stima: 340, zona: 'Argentina' },
-        // Trip.com da 135 $, Booking 157–163 $ (direzione opposta); dopo Pasqua
-        { id: 'igu-slz', voce: 'Volo interno, Foz do Iguaçu → São Luís', adulti: 2, da: ['IGU'], a: ['SLZ'], date: ['2028-04-18'], stima: 380, zona: 'Brasile' },
-        // Momondo da R$ 1.270 (~230 $), LATAM con scalo a San Paolo
-        { id: 'slz-scl', voce: 'Volo, São Luís → Santiago del Cile (via San Paolo)', adulti: 2, da: ['SLZ'], a: ['SCL'], date: ['2028-04-22'], stima: 600, zona: 'Cile' },
+        // eDreams, Aerolíneas Buenos Aires → El Calafate 107–225 $; da Ezeiza o da Aeroparque (stessa ricerca)
+        { id: 'eze-fte', voce: 'Volo interno, Buenos Aires → El Calafate', adulti: 2, da: ['EZE', 'AEP'], a: ['FTE'], date: ['2028-02-03'], stima: 400, zona: 'Argentina' },
+        // LATAM SCL–PNT da ~70 $, ~3 voli a settimana in estate; ripiego da Punta Arenas
+        { id: 'pnt-scl', voce: 'Volo interno, Puerto Natales → Santiago (o da Punta Arenas)', adulti: 2, da: ['PNT', 'PUQ'], a: ['SCL'], date: ['2028-02-12'], stima: 300, zona: 'Cile' },
         // Kayak 33–71 $, Momondo 60 $ (Sky, JetSMART, LATAM), bagaglio a parte sulle low cost
-        { id: 'scl-cjc', voce: 'Volo interno, Santiago → Calama (per San Pedro de Atacama)', adulti: 2, da: ['SCL'], a: ['CJC'], date: ['2028-04-23'], stima: 160, zona: 'Cile' },
+        { id: 'scl-cjc', voce: 'Volo interno, Santiago → Calama (per San Pedro de Atacama)', adulti: 2, da: ['SCL'], a: ['CJC'], date: ['2028-02-13'], stima: 160, zona: 'Cile' },
         // BoA diretto ~84 $ (flightconnections.com)
-        { id: 'uyu-lpb', voce: 'Volo interno, Uyuni → La Paz', adulti: 2, da: ['UYU'], a: ['LPB'], date: ['2028-04-28'], stima: 200, zona: 'Bolivia' },
+        { id: 'uyu-lpb', voce: 'Volo interno, Uyuni → La Paz', adulti: 2, da: ['UYU'], a: ['LPB'], date: ['2028-02-21'], stima: 200, zona: 'Bolivia' },
         // Trip.com da 239 $, Expedia da 250 $, Kiwi 216–277 $
-        { id: 'cuz-gua', voce: 'Volo, Cusco → Città del Guatemala (via Lima)', adulti: 2, da: ['CUZ'], a: ['GUA'], date: ['2028-05-09'], stima: 600, zona: 'Guatemala' },
+        { id: 'cuz-gua', voce: 'Volo, Cusco → Città del Guatemala (via Lima)', adulti: 2, da: ['CUZ'], a: ['GUA'], date: ['2028-03-03'], stima: 600, zona: 'Guatemala' },
         // Travelocity Copa 275–291 $, copaair.com da 368 $
-        { id: 'gua-gye', voce: 'Volo, Città del Guatemala → Guayaquil (via Panamá)', adulti: 2, da: ['GUA'], a: ['GYE'], date: ['2028-05-13'], stima: 700, zona: 'Ecuador e Galápagos' },
+        { id: 'gua-gye', voce: 'Volo, Città del Guatemala → Guayaquil (via Panamá)', adulti: 2, da: ['GUA'], a: ['GYE'], date: ['2028-03-07'], stima: 700, zona: 'Ecuador e Galápagos' },
         // LATAM da 116 $ (maggio 2026), Trip.com 121 $, Momondo 180 $
-        { id: 'gye-gps', voce: 'Volo interno, Guayaquil → Galápagos (Baltra)', adulti: 2, da: ['GYE'], a: ['GPS'], date: ['2028-05-14'], stima: 360, zona: 'Ecuador e Galápagos' },
+        { id: 'gye-gps', voce: 'Volo interno, Guayaquil → Galápagos (Baltra)', adulti: 2, da: ['GYE'], a: ['GPS'], date: ['2028-03-08'], stima: 360, zona: 'Ecuador e Galápagos' },
         // Travelocity GYE → SCY 159 $, FareCompare media 146 $; stessi prezzi nelle due direzioni (voyagers.travel)
-        { id: 'scy-gye', voce: 'Volo interno, San Cristóbal (Galápagos) → Guayaquil', adulti: 2, da: ['SCY'], a: ['GYE'], date: ['2028-05-21'], stima: 360, zona: 'Ecuador e Galápagos' },
+        { id: 'scy-gye', voce: 'Volo interno, San Cristóbal (Galápagos) → Guayaquil', adulti: 2, da: ['SCY'], a: ['GYE'], date: ['2028-03-15'], stima: 360, zona: 'Ecuador e Galápagos' },
       ],
     },
     alloggi: {
@@ -95,84 +94,81 @@ export const viaggi = [
       fonti: ['booking'],
       // Booking (codici SerpApi): appartamenti, case vacanza, hotel, B&B, guest house, lodge, inn (come Big Island).
       tipi: ['201', '220', '204', '208', '216', '221', '218'],
-      // Niente `paese`: sette paesi diversi; i risultati del paese sbagliato li scarta già il raggio dal centro.
+      // Niente `paese`: sei paesi diversi; i risultati del paese sbagliato li scarta già il raggio dal centro.
       raggioKm: 10,
       // `stimaNotte` = USD a notte per la camera doppia, livello comfort da luna di miele (hotel con voto 8+ in centro,
       // non lusso e non il più economico), finché Booking non risponde per date così lontane. Criterio: prezzi visti
-      // su Booking/Kayak/Momondo/Expedia nella ricerca del 2026-11-15 per aprile–maggio, arrotondati in su per il 2028.
+      // su Booking/Kayak/Momondo/Expedia nella ricerca del 2026-11-15, arrotondati in su per il 2028; febbraio è alta
+      // stagione in Patagonia (+20–30%), febbraio–marzo bassa in Perù (−10–15%).
       tappe: [
-        // stima: hotel 8+ in centro ~150 $ (nessun listino trovato: da verificare)
-        { id: 'natales', nome: 'Puerto Natales', q: 'Puerto Natales, Chile', centro: [-51.7308, -72.497], dal: '2028-04-08', al: '2028-04-09', stimaNotte: 170, zona: 'Cile' },
+        // voto 8,9–9,5: Destino Calafate da 116 $, Calafate Parque 140 $, El Quijote 153 $, + alta stagione
+        { id: 'calafate', nome: 'El Calafate', q: 'El Calafate, Argentina', centro: [-50.3379, -72.2648], dal: '2028-02-03', al: '2028-02-05', stimaNotte: 210, zona: 'Argentina' },
+        // Booking: 3 stelle ~135 $, 4 stelle ~249 $, + alta stagione
+        { id: 'chalten', nome: 'El Chaltén', q: 'El Chaltén, Argentina', centro: [-49.3315, -72.8863], raggioKm: 8, dal: '2028-02-05', al: '2028-02-08', stimaNotte: 230, zona: 'Argentina' },
+        { id: 'calafate-2', nome: 'El Calafate', q: 'El Calafate, Argentina', centro: [-50.3379, -72.2648], dal: '2028-02-08', al: '2028-02-09', stimaNotte: 210, zona: 'Argentina' },
         {
-          // Hotel Lago Grey: 333 $ (Orbitz, maggio 2026) – ~500 $ in alta stagione; solo camera, senza pensione completa
-          id: 'paine', nome: 'Torres del Paine', q: 'Torres del Paine, Chile', centro: [-51.0, -72.9], raggioKm: 40, dal: '2028-04-09', al: '2028-04-11', stimaNotte: 420, zona: 'Cile',
+          // Hotel Lago Grey ~450–500 $ in alta stagione (Trip.com da 504 $, Orbitz 333 $ a maggio 2026); solo camera
+          id: 'paine', nome: 'Torres del Paine', q: 'Torres del Paine, Chile', centro: [-51.0, -72.9], raggioKm: 40, dal: '2028-02-09', al: '2028-02-12',
+          stimaNotte: 520, zona: 'Cile',
           nota: 'Hotel dentro il parco: cerco entro 40 km dal centro, così entrano sia la zona di Las Torres sia quella del Pehoé e del Grey.',
         },
-        // voto 8,9–9,5: Destino Calafate da 116 $, Calafate Parque 140 $, El Quijote 153 $
-        { id: 'calafate', nome: 'El Calafate', q: 'El Calafate, Argentina', centro: [-50.3379, -72.2648], dal: '2028-04-11', al: '2028-04-13', stimaNotte: 170, zona: 'Argentina' },
-        // Booking: 3 stelle ~135 $, 4 stelle ~249 $
-        { id: 'chalten', nome: 'El Chaltén', q: 'El Chaltén, Argentina', centro: [-49.3315, -72.8863], raggioKm: 8, dal: '2028-04-13', al: '2028-04-16', stimaNotte: 180, zona: 'Argentina' },
-        // Skyscanner: 4 stelle ~88 €, 5 stelle ~155 €
-        { id: 'iguazu', nome: 'Puerto Iguazú', q: 'Puerto Iguazú, Argentina', centro: [-25.5972, -54.5786], raggioKm: 20, dal: '2028-04-16', al: '2028-04-18', stimaNotte: 150, zona: 'Argentina' },
-        // stima: hotel 8+ nel centro storico o a Ponta d'Areia
-        { id: 'sao-luis', nome: 'São Luís', q: 'São Luís, Brazil', centro: [-2.5307, -44.3068], raggioKm: 15, dal: '2028-04-18', al: '2028-04-19', stimaNotte: 100, zona: 'Brasile' },
-        // pousadas sul fiume 105–145 $ (Kayak, Momondo), weekend di Tiradentes
-        { id: 'barreirinhas', nome: 'Barreirinhas', q: 'Barreirinhas, Brazil', centro: [-2.747, -42.8264], raggioKm: 15, dal: '2028-04-19', al: '2028-04-22', stimaNotte: 140, zona: 'Brasile' },
         {
           // stima: hotel di catena davanti al terminal
           id: 'santiago', nome: 'Santiago, aeroporto', q: 'Santiago airport, Chile', centro: [-33.393, -70.786], raggioKm: 8, vicino: 'aeroporto di Santiago',
-          dal: '2028-04-22', al: '2028-04-23', stimaNotte: 180, zona: 'Cile',
+          dal: '2028-02-12', al: '2028-02-13', stimaNotte: 180, zona: 'Cile',
         },
         // Hotel Desertica, Quechua 160–277 $, Cumbres ~248 $
-        { id: 'san-pedro', nome: 'San Pedro de Atacama', q: 'San Pedro de Atacama, Chile', centro: [-22.9087, -68.1997], raggioKm: 8, dal: '2028-04-23', al: '2028-04-25', stimaNotte: 230, zona: 'Cile' },
+        { id: 'san-pedro', nome: 'San Pedro de Atacama', q: 'San Pedro de Atacama, Chile', centro: [-22.9087, -68.1997], raggioKm: 8, dal: '2028-02-13', al: '2028-02-16', stimaNotte: 230, zona: 'Cile' },
         {
-          // stima: hotel di sale o hotel 8+ in paese
-          id: 'uyuni', nome: 'Uyuni', q: 'Uyuni, Bolivia', centro: [-20.4597, -66.8261], raggioKm: 30, dal: '2028-04-27', al: '2028-04-28', stimaNotte: 140, zona: 'Bolivia',
-          nota: 'Le due notti prima (25 e 26 aprile) sono comprese nel tour di gruppo da San Pedro: un rifugio spartano a ~4.300 m e un hotel di sale.',
+          // hotel di sale al bordo del salar: Luna Salada 301 $ per una notte di febbraio (Hotels.com), Palacio de Sal da ~239 $ (Momondo).
+          // Il raggio di 30 km comprende Colchani e gli hotel di sale.
+          id: 'uyuni', nome: 'Uyuni', q: 'Uyuni, Bolivia', centro: [-20.4597, -66.8261], raggioKm: 30, dal: '2028-02-18', al: '2028-02-21', stimaNotte: 260, zona: 'Bolivia',
+          nota: 'Le due notti prima (16 e 17 febbraio) sono comprese nel tour di gruppo da San Pedro. Tre notti qui per lo specchio: l’alba, e il tramonto con le stelle il 20, il compleanno. Meglio un hotel di sale al bordo del salar.',
         },
         // stima: hotel 8+ a Sopocachi o San Jorge
-        { id: 'la-paz', nome: 'La Paz', q: 'La Paz, Bolivia', centro: [-16.5, -68.1193], dal: '2028-04-28', al: '2028-04-29', stimaNotte: 130, zona: 'Bolivia' },
+        { id: 'la-paz', nome: 'La Paz', q: 'La Paz, Bolivia', centro: [-16.5, -68.1193], dal: '2028-02-21', al: '2028-02-22', stimaNotte: 130, zona: 'Bolivia' },
         {
           // stima: ecolodge di Yumani con vista sul lago
           id: 'isla-del-sol', nome: 'Isla del Sol', q: 'Copacabana, Bolivia', centro: [-16.1661, -69.0861], raggioKm: 20, vicino: 'Copacabana',
-          dal: '2028-04-29', al: '2028-04-30', stimaNotte: 110, zona: 'Bolivia',
+          dal: '2028-02-22', al: '2028-02-23', stimaNotte: 110, zona: 'Bolivia',
           nota: 'Si dorme a Yumani, sull’isola: cerco entro 20 km da Copacabana, che comprende l’isola.',
         },
-        // Il treno PeruRail Titicaca parte da Puno lunedì, giovedì e sabato (orario 2025): lunedì 1° maggio.
+        // Il treno PeruRail Titicaca parte da Puno lunedì, giovedì e sabato (orario 2025): giovedì 24 febbraio.
+        // Dall'8/8/2026 servizio misto bus + treno per una frana al km 284–285 (perurail.com): da riverificare.
         // stima: hotel 8+ sul lago o in centro
-        { id: 'puno', nome: 'Puno', q: 'Puno, Peru', centro: [-15.8402, -70.0219], dal: '2028-04-30', al: '2028-05-01', stimaNotte: 130, zona: 'Perù' },
-        // boutique in centro: da ~66 $ a 255–317 $ per i 4,5 stelle; comfort ~170 $
-        { id: 'cusco', nome: 'Cusco', q: 'Cusco, Peru', centro: [-13.517, -71.9785], raggioKm: 5, dal: '2028-05-01', al: '2028-05-06', stimaNotte: 170, zona: 'Perù' },
-        // stima: hotel con giardino in valle (i resort di lusso costano il doppio)
-        { id: 'urubamba', nome: 'Urubamba', q: 'Urubamba, Peru', centro: [-13.3047, -72.116], raggioKm: 20, dal: '2028-05-06', al: '2028-05-07', stimaNotte: 160, zona: 'Perù' },
+        { id: 'puno', nome: 'Puno', q: 'Puno, Peru', centro: [-15.8402, -70.0219], dal: '2028-02-23', al: '2028-02-24', stimaNotte: 130, zona: 'Perù' },
+        // boutique in centro: da ~66 $ a 255–317 $ per i 4,5 stelle; comfort ~170 $, −10–15% in stagione delle piogge
+        { id: 'cusco', nome: 'Cusco', q: 'Cusco, Peru', centro: [-13.517, -71.9785], raggioKm: 5, dal: '2028-02-24', al: '2028-02-28', stimaNotte: 150, zona: 'Perù' },
+        // stima: hotel con giardino in valle (i resort di lusso costano il doppio); due notti per la Valle Sacra in due giorni
+        { id: 'urubamba', nome: 'Urubamba', q: 'Urubamba, Peru', centro: [-13.3047, -72.116], raggioKm: 20, dal: '2028-02-28', al: '2028-03-01', stimaNotte: 140, zona: 'Perù' },
         {
           // guida aprile 2026 (Yapa Explorers): fascia media 50–150 $, premium 150–350 $
           id: 'aguas-calientes', nome: 'Aguas Calientes', q: 'Machu Picchu Pueblo, Peru', centro: [-13.1547, -72.5254], raggioKm: 3,
-          dal: '2028-05-07', al: '2028-05-08', stimaNotte: 200, zona: 'Perù',
+          dal: '2028-03-01', al: '2028-03-02', stimaNotte: 180, zona: 'Perù',
         },
-        { id: 'cusco-2', nome: 'Cusco', q: 'Cusco, Peru', centro: [-13.517, -71.9785], raggioKm: 5, dal: '2028-05-08', al: '2028-05-09', stimaNotte: 170, zona: 'Perù' },
+        { id: 'cusco-2', nome: 'Cusco', q: 'Cusco, Peru', centro: [-13.517, -71.9785], raggioKm: 5, dal: '2028-03-02', al: '2028-03-03', stimaNotte: 150, zona: 'Perù' },
         {
-          // stima: hotel boutique 8+ in centro (nessun listino trovato: da verificare)
-          id: 'antigua', nome: 'Antigua', q: 'Antigua Guatemala', centro: [14.5586, -90.7295], raggioKm: 6, dal: '2028-05-09', al: '2028-05-13', stimaNotte: 160, zona: 'Guatemala',
+          // stima: hotel boutique 8+ in centro, stagione secca (nessun listino trovato: da verificare)
+          id: 'antigua', nome: 'Antigua', q: 'Antigua Guatemala', centro: [14.5586, -90.7295], raggioKm: 6, dal: '2028-03-03', al: '2028-03-07', stimaNotte: 170, zona: 'Guatemala',
           nota: 'La notte sull’Acatenango teniamo la stanza per i bagagli.',
         },
         {
           // stima: hotel di catena vicino al terminal
           id: 'guayaquil', nome: 'Guayaquil, aeroporto', q: 'Guayaquil airport, Ecuador', centro: [-2.1574, -79.8837], raggioKm: 6, vicino: 'aeroporto di Guayaquil',
-          dal: '2028-05-13', al: '2028-05-14', stimaNotte: 150, zona: 'Ecuador e Galápagos',
+          dal: '2028-03-07', al: '2028-03-08', stimaNotte: 150, zona: 'Ecuador e Galápagos',
         },
         // Puerto Ayora 80–280 $ (Solymar sul Malecón 110–170 $); comfort ~220 $
-        { id: 'santa-cruz', nome: 'Santa Cruz', q: 'Puerto Ayora, Galápagos', centro: [-0.7432, -90.3134], vicino: 'Puerto Ayora', dal: '2028-05-14', al: '2028-05-16', stimaNotte: 220, zona: 'Ecuador e Galápagos' },
+        { id: 'santa-cruz', nome: 'Santa Cruz', q: 'Puerto Ayora, Galápagos', centro: [-0.7432, -90.3134], vicino: 'Puerto Ayora', dal: '2028-03-08', al: '2028-03-10', stimaNotte: 220, zona: 'Ecuador e Galápagos' },
         // Puerto Villamil 50–180 $, Isabela Island Hotel sulla spiaggia 125–185 $
-        { id: 'isabela', nome: 'Isabela', q: 'Puerto Villamil, Galápagos', centro: [-0.9564, -90.9667], raggioKm: 8, vicino: 'Puerto Villamil', dal: '2028-05-16', al: '2028-05-18', stimaNotte: 180, zona: 'Ecuador e Galápagos' },
+        { id: 'isabela', nome: 'Isabela', q: 'Puerto Villamil, Galápagos', centro: [-0.9564, -90.9667], raggioKm: 8, vicino: 'Puerto Villamil', dal: '2028-03-10', al: '2028-03-12', stimaNotte: 180, zona: 'Ecuador e Galápagos' },
         // Puerto Baquerizo Moreno 60–240 $, ~20–30% meno di Santa Cruz
         {
           id: 'san-cristobal', nome: 'San Cristóbal', q: 'Puerto Baquerizo Moreno, Galápagos', centro: [-0.9017, -89.6103], raggioKm: 6, vicino: 'Puerto Baquerizo Moreno',
-          dal: '2028-05-18', al: '2028-05-21', stimaNotte: 170, zona: 'Ecuador e Galápagos',
+          dal: '2028-03-12', al: '2028-03-15', stimaNotte: 170, zona: 'Ecuador e Galápagos',
         },
         {
           id: 'guayaquil-2', nome: 'Guayaquil, aeroporto', q: 'Guayaquil airport, Ecuador', centro: [-2.1574, -79.8837], raggioKm: 6, vicino: 'aeroporto di Guayaquil',
-          dal: '2028-05-21', al: '2028-05-22', stimaNotte: 150, zona: 'Ecuador e Galápagos',
+          dal: '2028-03-15', al: '2028-03-16', stimaNotte: 150, zona: 'Ecuador e Galápagos',
           nota: 'Notte di riserva: se il volo dalle Galápagos ritarda, il volo per Denver è comunque il mattino dopo.',
         },
       ],
@@ -194,33 +190,32 @@ export const viaggi = [
         // andina.pe (tariffe 2026), circuito 3-A con Huayna Picchu
         { voce: 'Machu Picchu con Huayna Picchu, guida obbligatoria e bus Consettur', importo: 230, zona: 'Perù' },
         { voce: 'Treno Ollantaytambo ↔ Aguas Calientes, Vistadome andata e ritorno', importo: 360, zona: 'Perù' },
-        { voce: 'Valle Sacra con autista e boleto turístico', importo: 190, zona: 'Perù' },
+        { voce: 'Valle Sacra con autista in due giorni e boleto turístico', importo: 290, zona: 'Perù' },
         // Guida di terzi (maggio 2026): da ~270 $ a testa in economy, +25% in alta stagione; Magpie da 205 $.
         // perurail.com non pubblica le tariffe fuori dal motore di prenotazione: verificare lì.
         { voce: 'Treno PeruRail Titicaca, Puno → Cusco (2 × ~270 $, pasti compresi)', importo: 540, zona: 'Perù' },
         // TourRadar: gruppo piccolo ~98 $ a testa (2026); i gruppi grandi partono da ~40 $; ingresso e cavallo a parte se non compresi.
         { voce: 'Laguna Humantay, gita in giornata da Cusco in gruppo piccolo (2 × ~100 $)', importo: 200, zona: 'Perù' },
-        // TourRadar: ~100 $ a testa con l'ingresso (S/ 25–30 alla comunità); cavallo ~30 $ facoltativo.
-        { voce: 'Montagna Arcobaleno (Vinicunca), gita in giornata da Cusco con l’ingresso (2 × ~100 $)', importo: 200, zona: 'Perù' },
-        // nomades.com: Nomades CLP 219.000 a testa; parchi boliviani Avaroa 150 Bs e Incahuasi 30 Bs
+        // nomades.com: Nomades CLP 219.000 a testa; parchi boliviani Avaroa 150 Bs e Incahuasi 30 Bs.
+        // Con le piogge Incahuasi spesso si salta e la seconda notte può essere a Uyuni o al bordo del salar.
         { voce: 'Uyuni, tour di gruppo di 3 giorni da San Pedro e ingressi ai parchi boliviani', importo: 525, zona: 'Bolivia' },
+        // gite dello specchio da Uyuni, ~75–130 $ a testa (Expedia «sunset and stargazing», Lokalee)
+        { voce: 'Uyuni: tramonto e stelle sul salar a specchio, gruppo piccolo, 4–5 ore, stivali compresi (2 × ~90 $)', importo: 180, zona: 'Bolivia' },
+        { voce: 'Uyuni: alba sul salar a specchio, gruppo piccolo (2 × ~75 $)', importo: 150, zona: 'Bolivia' },
         { voce: 'San Pedro de Atacama: due gite (Valle de la Luna, lagune altiplaniche) e transfer da Calama', importo: 250, zona: 'Cile' },
+        { voce: 'San Pedro, tour astronomico (facoltativo, 2 × ~45 $)', importo: 90, zona: 'Cile' },
         { voce: 'Titicaca: bus La Paz → Copacabana, barca e tasse dell’Isla del Sol, bus per Puno', importo: 110, zona: 'Bolivia' },
         { voce: 'Acatenango, salita con notte al campo (2 × ~110 $) e tassa del parco', importo: 240, zona: 'Guatemala' },
         // argentina.gob.ar/parquesnacionales/tarifas
         { voce: 'Perito Moreno: ingresso (2 × ARS 50.000), barca e transfer', importo: 230, zona: 'Argentina' },
         // nuove tariffe CONAF dal 1/5/2026, pasesparques.cl
         { voce: 'Torres del Paine, ingresso al parco', importo: 100, zona: 'Cile' },
-        { voce: 'Transfer privato Torres del Paine → Cerro Castillo → El Calafate', importo: 450, zona: 'Argentina' },
-        { voce: 'Bus El Calafate → El Chaltén e navetta El Chaltén → aeroporto di El Calafate', importo: 170, zona: 'Argentina' },
-        { voce: 'Iguazú: lato argentino (2 × ARS 60.000) e lato brasiliano', importo: 130, zona: 'Argentina' },
-        { voce: 'Lençóis: transfer São Luís ↔ Barreirinhas e due gite (Lagoa Azul, Rio Preguiças)', importo: 230, zona: 'Brasile' },
-        // giorno di riserva: se il tempo regge, Atins e le lagune dall'altro lato in 4x4 (stima, gite condivise ~R$ 300 a testa)
-        { voce: 'Lençóis, giorno di riserva: Atins e le lagune in 4x4 (facoltativo, 2 × ~60 $)', importo: 120, zona: 'Brasile' },
+        { voce: 'Transfer privato El Calafate → Cerro Castillo → Torres del Paine', importo: 450, zona: 'Argentina' },
+        { voce: 'Bus El Calafate ↔ El Chaltén andata e ritorno e transfer aeroporto FTE → El Calafate', importo: 170, zona: 'Argentina' },
+        { voce: 'Taxi Ezeiza → Aeroparque, se il volo per El Calafate parte da lì', importo: 50, zona: 'Argentina' },
         { voce: 'Navetta aeroporto di Città del Guatemala ↔ Antigua', importo: 60, zona: 'Guatemala' },
-        // nomades.com: navetta condivisa dall'aeroporto di Punta Arenas da CLP 17.000 a testa;
-        // transfer privato Natales → parco CLP 80.000–150.000 a veicolo (dicaschile.com.br); navetta per Las Torres ~CLP 4.000.
-        { voce: 'Bus Punta Arenas → Puerto Natales, transfer Natales → hotel nel parco con le soste, navette nel parco', importo: 210, zona: 'Cile' },
+        // transfer privato parco ↔ Natales CLP 80.000–150.000 a veicolo (dicaschile.com.br); navetta per Las Torres ~CLP 4.000.
+        { voce: 'Transfer dall’hotel del parco all’aeroporto di Puerto Natales, navette nel parco', importo: 180, zona: 'Cile' },
       ],
     },
   },
