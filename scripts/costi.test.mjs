@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { accessoPersona, carburante, costoAccesso, datiPagina, notti, valutaDi, voliOspiti } from '../src/costi.js'
+import { accessoPersona, carburante, costoAccesso, datiPagina, notti, stima, valutaDi, voliOspiti } from '../src/costi.js'
 import { GENERI, playlist } from '../src/playlist.js'
 import { viaggi } from '../src/viaggi.js'
 
@@ -173,7 +173,7 @@ test('datiPagina di Glacier: dollari, una coppia, rilevazione unica, 4 notti dal
   assert.deepEqual(d.playlist.blocchi.map((b) => b.giorno), [10, 11, 12, 14])
 })
 
-test('datiPagina del Sud America: dollari, una coppia, rilevazione unica, 22 tappe con il buco del tour di Uyuni, 9 voli interni', () => {
+test('datiPagina del Sud America: dollari, una coppia, rilevazione unica, 23 tappe con il buco del tour di Uyuni, 9 voli interni', () => {
   const sa = viaggi.find((v) => v.slug === 'sudamerica-2028')
   assert.equal(viaggi[0], sa)
   const d = datiPagina(sa, { playlist: playlist[sa.slug], generi: GENERI })
@@ -185,20 +185,23 @@ test('datiPagina del Sud America: dollari, una coppia, rilevazione unica, 22 tap
   // Uber andata e ritorno, niente parcheggio
   assert.deepEqual(d.accesso, { aeroporti: { DEN: { auto: 60, parcheggio: 0 } }, persona: { DEN: 60 } })
   const t = d.alloggi.tappe
-  assert.equal(t.length, 22)
+  assert.equal(t.length, 23)
   assert.equal(t[0].dal, '2028-04-08')
-  assert.equal(t.at(-1).al, '2028-05-16')
+  assert.equal(t.at(-1).al, '2028-05-22')
   // consecutive, tranne le due notti del tour di gruppo (comprese nel prezzo del tour)
   const buchi = []
   for (let i = 1; i < t.length; i++) if (t[i].dal !== t[i - 1].al) buchi.push([t[i - 1].al, t[i].dal])
-  assert.deepEqual(buchi, [['2028-04-24', '2028-04-26']])
-  // 38 notti dall’8 aprile al 16 maggio, meno le due del tour
-  assert.equal(t.reduce((n, x) => n + x.notti, 0), 36)
+  assert.deepEqual(buchi, [['2028-04-25', '2028-04-27']])
+  // 44 notti dall’8 aprile al 22 maggio, meno le due del tour
+  assert.equal(t.reduce((n, x) => n + x.notti, 0), 42)
+  assert.deepEqual(t.filter((x) => x.notti >= 3).map((x) => [x.id, x.notti]), [
+    ['chalten', 3], ['barreirinhas', 3], ['cusco', 5], ['antigua', 4], ['san-cristobal', 3],
+  ])
   assert.match(t.find((x) => x.id === 'uyuni').nota, /tour/)
   assert.match(t.find((x) => x.id === 'antigua').nota, /Acatenango/)
-  // il treno Titicaca parte da Puno solo lunedì, giovedì e sabato: due notti a Puno, treno lunedì 1° maggio
+  // il treno Titicaca parte da Puno solo lunedì, giovedì e sabato: una notte a Puno, treno lunedì 1° maggio
   const puno = t.find((x) => x.id === 'puno')
-  assert.deepEqual([puno.dal, puno.al], ['2028-04-29', '2028-05-01'])
+  assert.deepEqual([puno.dal, puno.al], ['2028-04-30', '2028-05-01'])
   assert.equal(new Date(puno.al + 'T12:00:00Z').getUTCDay(), 1)
   assert.deepEqual([d.alloggi.adulti, d.alloggi.camere, d.alloggi.bagni], [2, 1, 1])
   assert.equal(sa.alloggi.paese, undefined)
@@ -206,24 +209,97 @@ test('datiPagina del Sud America: dollari, una coppia, rilevazione unica, 22 tap
   assert.equal(d.carburante, null)
   assert.equal(sa.costi.noleggio, undefined)
   assert.ok(d.extra.every((e) => typeof e.importo === 'number' && e.importo > 0), JSON.stringify(d.extra))
-  assert.equal(d.extra.reduce((n, e) => n + e.importo, 0), 5885)
+  assert.equal(d.extra.reduce((n, e) => n + e.importo, 0), 6515)
+  assert.ok(d.extra.some((e) => /Kicker Rock/.test(e.voce)))
+  assert.ok(d.extra.some((e) => /3 tratte/.test(e.voce)))
   assert.ok(d.extra.some((e) => /PeruRail Titicaca/.test(e.voce)))
   assert.ok(d.extra.some((e) => /Humantay/.test(e.voce)))
   assert.ok(d.extra.some((e) => /Vinicunca/.test(e.voce)))
   assert.deepEqual(d.ospiti.map((x) => [x.id, x.da[0], x.a[0], x.date[0], x.adulti]), [
     ['fte-igr', 'FTE', 'IGR', '2028-04-16', 2],
     ['igu-slz', 'IGU', 'SLZ', '2028-04-18', 2],
-    ['slz-scl', 'SLZ', 'SCL', '2028-04-21', 2],
-    ['scl-cjc', 'SCL', 'CJC', '2028-04-22', 2],
-    ['uyu-lpb', 'UYU', 'LPB', '2028-04-27', 2],
-    ['cuz-gua', 'CUZ', 'GUA', '2028-05-07', 2],
-    ['gua-gye', 'GUA', 'GYE', '2028-05-10', 2],
-    ['gye-gps', 'GYE', 'GPS', '2028-05-11', 2],
-    ['gps-gye', 'GPS', 'GYE', '2028-05-15', 2],
+    ['slz-scl', 'SLZ', 'SCL', '2028-04-22', 2],
+    ['scl-cjc', 'SCL', 'CJC', '2028-04-23', 2],
+    ['uyu-lpb', 'UYU', 'LPB', '2028-04-28', 2],
+    ['cuz-gua', 'CUZ', 'GUA', '2028-05-09', 2],
+    ['gua-gye', 'GUA', 'GYE', '2028-05-13', 2],
+    ['gye-gps', 'GYE', 'GPS', '2028-05-14', 2],
+    ['scy-gye', 'SCY', 'GYE', '2028-05-21', 2],
   ])
   assert.ok(d.ospiti.every((x) => x.voce.includes('→')))
   assert.deepEqual([d.alternative, d.rientro], [[], null])
-  assert.deepEqual(d.playlist.blocchi.map((b) => b.giorno), [5, 7, 13, 18, 22, 25, 29])
+  assert.deepEqual(d.playlist.blocchi.map((b) => b.giorno), [5, 7, 13, 19, 23, 25, 31])
   assert.equal(d.playlist.spotify, null)
   assert.equal(d.playlist.generi.latino, 'Musica latinoamericana')
+})
+
+test('stime del Sud America in viaggio.json: voli, voli interni e notti, tutte numeri; assenti negli altri viaggi', () => {
+  const sa = viaggi.find((v) => v.slug === 'sudamerica-2028')
+  const d = datiPagina(sa)
+  // andata e ritorno intercontinentale, totale per due
+  assert.equal(d.stimaVoli, sa.voli.stima)
+  assert.ok(d.stimaVoli > 1000)
+  // ogni volo interno ha la sua stima (totale per due)
+  assert.ok(d.ospiti.every((x) => typeof x.stima === 'number' && x.stima > 0), JSON.stringify(d.ospiti))
+  assert.equal(d.ospiti.reduce((n, x) => n + x.stima, 0), 3700)
+  // ogni tappa ha il prezzo a notte e il totale delle sue notti
+  for (const x of d.alloggi.tappe) {
+    assert.ok(typeof x.stimaNotte === 'number' && x.stimaNotte > 0, x.id)
+    assert.equal(x.stima, x.stimaNotte * x.notti, x.id)
+  }
+  assert.equal(d.alloggi.tappe.find((x) => x.id === 'cusco').stima, 5 * 170)
+  assert.equal(d.alloggi.tappe.reduce((n, x) => n + x.stima, 0), 7490)
+  // gli altri viaggi non cambiano: niente chiavi di stima
+  for (const v of viaggi.filter((x) => x !== sa)) {
+    const o = datiPagina(v)
+    assert.equal('stimaVoli' in o, false, v.slug)
+    assert.ok(o.ospiti.every((x) => !('stima' in x)), v.slug)
+    assert.ok((o.alloggi?.tappe ?? []).every((x) => !('stimaNotte' in x) && !('stima' in x)), v.slug)
+  }
+  // valori non validi si ignorano
+  const finto = { voli: { stima: -5, ospiti: [{ id: 'a', adulti: 2, da: ['X'], a: ['Y'], date: ['2028-01-01'], stima: 'tanto' }] },
+    alloggi: { adulti: 2, camere: 1, bagni: 1, tappe: [{ id: 't', nome: 'T', dal: '2028-01-01', al: '2028-01-03', stimaNotte: 99.5 }] } }
+  const f = datiPagina(finto)
+  assert.equal('stimaVoli' in f, false)
+  assert.equal('stima' in f.ospiti[0], false)
+  assert.deepEqual([f.alloggi.tappe[0].stimaNotte, f.alloggi.tappe[0].stima], [99.5, 199])
+  assert.equal(stima(0), 0)
+  assert.equal(stima(Number.NaN), null)
+})
+
+test('zona del Sud America: ogni voce ha il suo paese, le somme per paese tornano, gli altri viaggi non ne hanno', () => {
+  const ZONE = ['Cile', 'Argentina', 'Brasile', 'Bolivia', 'Perù', 'Guatemala', 'Ecuador e Galápagos']
+  const sa = viaggi.find((v) => v.slug === 'sudamerica-2028')
+  const d = datiPagina(sa)
+  const voci = [...d.ospiti, ...d.alloggi.tappe, ...d.extra]
+  for (const x of voci) assert.ok(ZONE.includes(x.zona), JSON.stringify(x))
+  // tutte le zone hanno almeno una voce
+  assert.deepEqual(ZONE.filter((z) => voci.some((x) => x.zona === z)), ZONE)
+  // voli interni: il paese in cui si atterra
+  assert.deepEqual(d.ospiti.map((x) => [x.id, x.zona]), [
+    ['fte-igr', 'Argentina'], ['igu-slz', 'Brasile'], ['slz-scl', 'Cile'], ['scl-cjc', 'Cile'], ['uyu-lpb', 'Bolivia'],
+    ['cuz-gua', 'Guatemala'], ['gua-gye', 'Ecuador e Galápagos'], ['gye-gps', 'Ecuador e Galápagos'], ['scy-gye', 'Ecuador e Galápagos'],
+  ])
+  // extra: dove si fa l'attività
+  const ex = (re) => d.extra.find((e) => re.test(e.voce)).zona
+  assert.equal(ex(/Uyuni, tour/), 'Bolivia')
+  assert.equal(ex(/Transfer privato Torres del Paine/), 'Argentina')
+  assert.equal(ex(/Punta Arenas/), 'Cile')
+  assert.equal(ex(/La Paz → Copacabana/), 'Bolivia')
+  assert.equal(ex(/PeruRail Titicaca/), 'Perù')
+  // coppia intercontinentale e accesso a Denver restano fuori dalle zone
+  assert.equal('zona' in d, false)
+  // le somme per paese fanno il totale stimato meno voli da e per Denver e accesso
+  const valore = (x) => x.stima ?? x.importo
+  const perZona = {}
+  for (const x of voci) perZona[x.zona] = (perZona[x.zona] ?? 0) + valore(x)
+  const totale = d.stimaVoli + 2 * d.accesso.aeroporti.DEN.auto + d.accesso.aeroporti.DEN.parcheggio + voci.reduce((n, x) => n + valore(x), 0)
+  assert.equal(Object.values(perZona).reduce((n, x) => n + x, 0), totale - d.stimaVoli - 120)
+  assert.equal(totale, 2200 + 120 + 3700 + 7490 + 6515)
+  // gli altri viaggi non hanno zone
+  for (const v of viaggi.filter((x) => x !== sa)) {
+    const o = datiPagina(v)
+    assert.ok([...o.ospiti, ...(o.alloggi?.tappe ?? []), ...o.extra].every((x) => !('zona' in x)), v.slug)
+  }
+  assert.deepEqual(datiPagina({ costi: { extra: [{ voce: 'A', importo: 1, zona: '' }] } }).extra, [{ voce: 'A', importo: 1 }])
 })

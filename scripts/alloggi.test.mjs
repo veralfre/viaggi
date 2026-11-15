@@ -454,7 +454,7 @@ describe('Glacier: prolungamento di chi ospita, non attivo, rilevazione una tant
   })
 })
 
-describe('Sud America: non attivo, 22 tappe in sette paesi, rilevazione una tantum con --slug', () => {
+describe('Sud America: non attivo, 23 tappe in sette paesi, rilevazione una tantum con --slug', () => {
   const sa = viaggi.find((v) => v.slug === 'sudamerica-2028')
   const oggi = '2026-11-15'
   const cli = (...args) =>
@@ -463,15 +463,15 @@ describe('Sud America: non attivo, 22 tappe in sette paesi, rilevazione una tant
       env: { ...process.env, SERPAPI_KEY_ALLOGGI: '', ALLOGGI_NOW: oggi + 'T05:17:00Z' },
     })
 
-  test('spento, solo Booking, 22 ricerche; nessun paese globale', () => {
+  test('spento, solo Booking, 23 ricerche; nessun paese globale', () => {
     assert.equal(sa.alloggi.attivo, false)
     assert.deepEqual(attivi(viaggi, oggi).map((v) => v.slug), ['ovest-2027-short'])
     assert.deepEqual(sa.alloggi.fonti, ['booking'])
     assert.equal(sa.alloggi.monolocali, true)
     assert.equal(sa.alloggi.paese, undefined)
-    assert.equal(tappe(sa.alloggi, oggi).length, 22)
+    assert.equal(tappe(sa.alloggi, oggi).length, 23)
     // con lo schedule sarebbe oltre il limite mensile: per questo solo una rilevazione una tantum
-    assert.deepEqual(stimaBudget([sa], oggi), { perEsecuzione: 22, alMese: 352, livello: 'errore' })
+    assert.deepEqual(stimaBudget([sa], oggi), { perEsecuzione: 23, alMese: 368, livello: 'errore' })
     // le tappe ripetute (Cusco, Guayaquil) cercano nello stesso posto
     const t = Object.fromEntries(sa.alloggi.tappe.map((x) => [x.id, x]))
     assert.deepEqual([t['cusco-2'].q, t['cusco-2'].centro], [t.cusco.q, t.cusco.centro])
@@ -496,14 +496,15 @@ describe('Sud America: non attivo, 22 tappe in sette paesi, rilevazione una tant
     assert.deepEqual(strutture('booking', j, m).map((x) => x.nome), ['Puerto Ayora'])
   })
 
-  test('CLI --dry-run --slug sudamerica-2028: cercato una volta, 22 ricerche', () => {
+  test('CLI --dry-run --slug sudamerica-2028: cercato una volta, 23 ricerche', () => {
     const r = cli('--slug', 'sudamerica-2028')
     assert.equal(r.status, 0, r.stderr)
     assert.match(r.stdout, /sudamerica-2028: non attivo, cercato una volta/)
-    assert.match(r.stdout, /22 tappe × 1 fonti \(booking\) = 22 ricerche/)
+    assert.match(r.stdout, /23 tappe × 1 fonti \(booking\) = 23 ricerche/)
     assert.match(r.stdout, /paine: .*2028-04-09 → 2028-04-11 \(2 notti, entro 40 km/)
-    assert.match(r.stdout, /uyuni: .*2028-04-26 → 2028-04-27 \(1 notti, entro 30 km/)
-    assert.match(r.stdout, /Esecuzione una tantum alloggi: 22 ricerche/)
+    assert.match(r.stdout, /uyuni: .*2028-04-27 → 2028-04-28 \(1 notti, entro 30 km/)
+    assert.match(r.stdout, /san-cristobal: Puerto Baquerizo Moreno, Galápagos, 2028-05-18 → 2028-05-21 \(3 notti, entro 6 km/)
+    assert.match(r.stdout, /Esecuzione una tantum alloggi: 23 ricerche/)
     assert.doesNotMatch(r.stdout, /al mese/)
   })
 

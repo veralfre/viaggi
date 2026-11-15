@@ -349,7 +349,7 @@ const GLACIER = [
   ['estes-park', 14, 'Si torna a casa', 'Many Glacier → Two Medicine → Marias Pass → aeroporto di Kalispell'],
 ]
 
-// Sud America (7 aprile – 16 maggio 2028, in due): playlist nuova, sui tragitti lunghi su strada,
+// Sud America (7 aprile – 22 maggio 2028, in due): playlist nuova, sui tragitti lunghi su strada,
 // sulla jeep del salar e in treno. Giorni del programma della pagina.
 const sudamerica = {
   nome: 'Sud America 2028 · dalla Patagonia alle Galápagos',
@@ -418,7 +418,7 @@ const sudamerica = {
     },
     {
       id: 'salar',
-      giorno: 18,
+      giorno: 19,
       titolo: 'Tre giorni di jeep tra lagune e sale',
       tragitto: 'San Pedro → Hito Cajón → Laguna Verde → Laguna Colorada → salar di Uyuni',
       brani: [
@@ -442,7 +442,7 @@ const sudamerica = {
     },
     {
       id: 'titicaca',
-      giorno: 22,
+      giorno: 23,
       titolo: 'Sull’altipiano fino al lago',
       tragitto: 'La Paz → stretto di Tiquina → Copacabana',
       brani: [
@@ -483,7 +483,7 @@ const sudamerica = {
     },
     {
       id: 'valle-sacra',
-      giorno: 29,
+      giorno: 31,
       titolo: 'Ollantaytambo, e poi il treno per Machu Picchu',
       tragitto: 'Urubamba → Ollantaytambo → Aguas Calientes',
       brani: [

@@ -47,11 +47,21 @@ export function carburante(c, km = c?.km) {
  * `voli.rientroOspiti` (una tratta, solo con `attivo: true`). [] se non ce ne sono.
  */
 export function voliOspiti(voli) {
-  const tratta = (t, id, voce) => ({ id: t.id ?? id, voce: t.voce ?? voce, adulti: t.adulti, da: t.da, a: t.a, date: t.date })
+  // `stima` (facoltativa): totale stimato per gli adulti della tratta, finché il prezzo non si può rilevare.
+  const tratta = (t, id, voce) => ({ id: t.id ?? id, voce: t.voce ?? voce, adulti: t.adulti, da: t.da, a: t.a, date: t.date, ...conStima('stima', t.stima), ...conZona(t.zona) })
   if (Array.isArray(voli?.ospiti)) return voli.ospiti.filter((t) => t.attivo !== false).map((t, i) => tratta(t, 'ospiti-' + (i + 1), 'Volo di chi ospita'))
   const r = voli?.rientroOspiti
   return r?.attivo === true ? [tratta(r, 'rientro', 'Volo di rientro')] : []
 }
+
+/** Stima a mano (importo nella valuta del viaggio): il numero se è un numero non negativo, altrimenti null. */
+export const stima = (x) => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? x : null)
+
+/** { [chiave]: valore } solo se la stima c'è: i viaggi senza stime restano identici. */
+const conStima = (chiave, x) => (stima(x) == null ? {} : { [chiave]: stima(x) })
+
+/** { zona } solo se è una stringa non vuota (paese della voce, per il conto diviso per paese). */
+const conZona = (z) => (typeof z === 'string' && z ? { zona: z } : {})
 
 const ID_SPOTIFY = /^[A-Za-z0-9]{22}$/
 
@@ -73,6 +83,9 @@ export function datiPlaylist(pl, spotify, generi = {}) {
 /**
  * Dati per la pagina del viaggio (serviti come /<slug>/viaggio.json).
  * extra: { playlist, spotify, generi } per la sezione «Playlist del viaggio».
+ * Stime facoltative (solo se configurate, altrimenti la chiave manca): `stimaVoli` (totale andata e ritorno per
+ * gli adulti in volo, da `voli.stima`), `stima` sulle tratte di `ospiti`, `stimaNotte` e `stima` (× notti) sulle tappe.
+ * `zona` facoltativa (paese, per il conto diviso per paese) su tratte di `ospiti`, tappe ed extra, se configurata.
  */
 export function datiPagina(v, extra = {}) {
   const acc = v.voli?.accesso ?? null
@@ -95,6 +108,7 @@ export function datiPagina(v, extra = {}) {
     partenze: v.voli?.andata?.da ?? null,
     arrivo: v.voli?.andata?.a ?? null,
     ritornoDa: v.voli?.ritorno?.da ?? null,
+    ...conStima('stimaVoli', v.voli?.stima),
     accesso: acc ? { aeroporti: acc, persona } : null,
     alloggi: al
       ? {
@@ -104,10 +118,13 @@ export function datiPagina(v, extra = {}) {
           tappe: al.tappe.map((t) => ({
             id: t.id, nome: t.nome, dal: t.dal, al: t.al, notti: notti(t.dal, t.al), nota: t.nota ?? '',
             vicino: t.vicino ?? t.nome, raggioKm: t.raggioKm ?? al.raggioKm ?? null,
+            ...conStima('stimaNotte', t.stimaNotte),
+            ...conStima('stima', stima(t.stimaNotte) == null ? null : Math.round(t.stimaNotte * notti(t.dal, t.al))),
+            ...conZona(t.zona),
           })),
         }
       : null,
-    extra: voci.map((e) => ({ voce: e.voce, importo: typeof e.importo === 'number' ? e.importo : null })),
+    extra: voci.map((e) => ({ voce: e.voce, importo: typeof e.importo === 'number' ? e.importo : null, ...conZona(e.zona) })),
     carburante: carburante(carb),
     rientro: v.voli?.rientroOspiti?.attivo === true
       ? { adulti: v.voli.rientroOspiti.adulti, da: v.voli.rientroOspiti.da, a: v.voli.rientroOspiti.a, date: v.voli.rientroOspiti.date }

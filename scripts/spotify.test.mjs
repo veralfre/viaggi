@@ -185,12 +185,12 @@ test('Sud America: playlist nuova in fondo, sette tragitti su strada, jeep e tre
   assert.equal(Object.keys(playlist)[0], 'ovest-2027')
   assert.equal(Object.keys(playlist).at(-1), 'sudamerica-2028')
   // Paine → Calafate, Calafate → Chaltén, São Luís → Barreirinhas, jeep del salar (un blocco per i tre giorni),
-  // La Paz → Copacabana, treno Titicaca Puno → Cusco (lunedì 1° maggio), Urubamba → Aguas Calientes
+  // La Paz → Copacabana, treno Titicaca Puno → Cusco (lunedì 1° maggio), Ollantaytambo → Aguas Calientes
   assert.deepEqual(sa.blocchi.map((b) => [b.id, b.giorno]), [
-    ['patagonia', 5], ['chalten', 7], ['lencois', 13], ['salar', 18], ['titicaca', 22], ['treno', 25], ['valle-sacra', 29],
+    ['patagonia', 5], ['chalten', 7], ['lencois', 13], ['salar', 19], ['titicaca', 23], ['treno', 25], ['valle-sacra', 31],
   ])
   for (const b of sa.blocchi) {
-    assert.ok(b.giorno >= 1 && b.giorno <= 40)
+    assert.ok(b.giorno >= 1 && b.giorno <= 46)
     assert.ok(b.titolo && b.tragitto)
     for (const [a, t, g] of b.brani) assert.ok(a && t && GENERI[g], a + ' ' + t + ' ' + g)
   }

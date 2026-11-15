@@ -717,7 +717,7 @@ describe('Sud America: non attivo, voli interni come tratte ospiti, rilevazione 
   })
 
   test('1 coppia di date + 1 aeroporto + 9 voli interni = 11 ricerche, una per tratta di sola andata', () => {
-    assert.deepEqual(coppie(sa.voli, oggi), [{ andata: '2028-04-07', ritorno: '2028-05-16' }])
+    assert.deepEqual(coppie(sa.voli, oggi), [{ andata: '2028-04-07', ritorno: '2028-05-22' }])
     assert.deepEqual(scenari(sa).map((s) => s.csv), ['voli.csv'])
     const t = tratteOspiti(sa.voli, oggi)
     assert.equal(t.length, 9)
@@ -738,7 +738,8 @@ describe('Sud America: non attivo, voli interni come tratte ospiti, rilevazione 
     assert.match(r.stdout, /sudamerica-2028: non attivo, cercato una volta/)
     assert.match(r.stdout, /sudamerica-2028 \(voli\.csv\): 2 adulti, DEN → PUQ,PNT \/ GYE → DEN, 1 coppie .* \+ 9 voli di chi ospita = 11 ricerche/)
     assert.equal(r.stdout.match(/solo andata/g).length, 9)
-    assert.match(r.stdout, /\(cuz-gua\): CUZ → GUA 2028-05-07/)
+    assert.match(r.stdout, /\(cuz-gua\): CUZ → GUA 2028-05-09/)
+    assert.match(r.stdout, /\(scy-gye\): SCY → GYE 2028-05-21/)
     assert.match(r.stdout, /Esecuzione una tantum: 11 ricerche/)
     assert.doesNotMatch(r.stdout, /al mese/)
   })
