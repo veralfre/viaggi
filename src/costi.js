@@ -133,10 +133,18 @@ export function datiPagina(v, extra = {}) {
     // Scenari di confronto (voli.alternative), ognuno con il suo CSV e i suoi costi (costi.alternative[id]).
     alternative: (v.voli?.alternative ?? []).map((a) => {
       const c = v.costi?.alternative?.[a.id] ?? {}
+      // Scenario con meno persone (facoltativo, chiavi solo se configurate): adulti in volo e accesso a persona,
+      // coppie tra cui dividere, fattoreCase = case stimate come frazione del totale rilevato.
+      const ad = typeof a.adulti === 'number' ? a.adulti : null
       return {
         id: a.id, nome: a.nome ?? a.id, descrizione: a.descrizione ?? '', csv: a.csv ?? 'voli-' + a.id + '.csv',
         partenze: a.andata.da, arrivo: a.andata.a, ritornoDa: a.ritorno.da, ospiti: voliOspiti(a),
         carburante: carburante(carb && { ...carb, ...c.carburante }), noleggio: noleggio(c.noleggio),
+        ...(ad != null
+          ? { adulti: ad, accesso: acc ? { aeroporti: acc, persona: Object.fromEntries(Object.keys(acc).map((da) => [da, accessoPersona(acc, ad, da)])) } : null }
+          : {}),
+        ...(typeof c.coppie === 'number' ? { coppie: c.coppie } : {}),
+        ...conStima('fattoreCase', c.fattoreCase),
       }
     }),
     playlist: datiPlaylist(extra.playlist, extra.spotify, extra.generi),

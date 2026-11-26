@@ -708,8 +708,8 @@ describe('Sud America: non attivo, voli interni come tratte ospiti, rilevazione 
       env: { ...process.env, SERPAPI_KEY: '', VOLI_NOW: oggi + 'T05:17:00Z' },
     })
 
-  test('primo della lista; spento: lo schedule cerca ancora solo il viaggio breve', () => {
-    assert.equal(viaggi[0], sa)
+  test('secondo della lista; spento: lo schedule cerca ancora solo il viaggio breve', () => {
+    assert.equal(viaggi[1], sa)
     assert.equal(sa.voli.attivo, false)
     assert.equal(sa.voli.gl, 'us')
     assert.deepEqual(attivi(viaggi, oggi).map((v) => v.slug), ['ovest-2027-short'])
@@ -750,5 +750,38 @@ describe('Sud America: non attivo, voli interni come tratte ospiti, rilevazione 
     assert.equal(r.status, 0, r.stderr)
     assert.match(r.stdout, /13 ricerche per esecuzione, circa 208 al mese/)
     assert.doesNotMatch(r.stdout, /sudamerica/)
+  })
+})
+
+describe('Costa ovest: non attivo, scenario «se siamo in quattro» con 2 adulti, rilevazione una tantum con --slug', () => {
+  const co = viaggi.find((v) => v.slug === 'costa-ovest-2027')
+  const oggi = '2026-11-26'
+  const cli = (...args) =>
+    spawnSync(process.execPath, [path.join(QUI, 'voli.mjs'), '--dry-run', ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, SERPAPI_KEY: '', VOLI_NOW: oggi + 'T05:17:00Z' },
+    })
+
+  test('primo della lista, spento: lo schedule non lo cerca', () => {
+    assert.equal(viaggi[0], co)
+    assert.equal(co.voli.attivo, false)
+    assert.ok(!attivi(viaggi, oggi).includes(co))
+    assert.deepEqual(scenari(co).map((s) => [s.csv, s.voli.adulti]), [['voli.csv', 4], ['voli-in4.csv', 2]])
+    assert.equal(stimaBudget([co], oggi).perEsecuzione, 10)
+  })
+
+  test('CLI --dry-run --slug costa-ovest-2027: due scenari da 5, 10 ricerche', () => {
+    const r = cli('--slug', 'costa-ovest-2027')
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /costa-ovest-2027: non attivo, cercato una volta/)
+    assert.match(r.stdout, /costa-ovest-2027 \(voli\.csv\): 4 adulti, MXP,VCE → SEA \/ LAX → MXP,VCE, .* = 5 ricerche/)
+    assert.match(r.stdout, /costa-ovest-2027 \[in4\] \(voli-in4\.csv\): 2 adulti, .* = 5 ricerche/)
+    assert.match(r.stdout, /Esecuzione una tantum: 10 ricerche/)
+  })
+
+  test('CLI --dry-run senza slug: il viaggio non conta', () => {
+    const r = cli()
+    assert.equal(r.status, 0, r.stderr)
+    assert.doesNotMatch(r.stdout, /costa-ovest/)
   })
 })

@@ -28,6 +28,10 @@
 //   `adulti`; `stimaNotte` su ogni tappa di `alloggi` = prezzo a notte della sistemazione. La build le mette
 //   in viaggio.json (`stimaVoli`, `ospiti[].stima`, `alloggi.tappe[].stimaNotte` e `.stima` = × notti) e la
 //   pagina le usa, segnate come stime, finché non c'è il prezzo rilevato.
+// - Scenario con meno persone: `voli.alternative[].adulti` = adulti in volo dall'Italia nello scenario
+//   (default `voli.adulti`; vale anche per l'accesso all'aeroporto); `costi.alternative[id].coppie` = coppie
+//   tra cui si divide il conto dello scenario; `costi.alternative[id].fattoreCase` = stima delle case dello
+//   scenario come frazione del totale case rilevato (es. 0.75 = case per 4 a tre quarti di quelle per 6).
 // - `zona` (facoltativa): paese della voce per il conto diviso per paese, su tappe di `alloggi`, tratte di
 //   `voli.ospiti` (il paese in cui si atterra) e righe di `costi.extra` (dove si fa l'attività). Non è `paese`,
 //   che per gli alloggi è il filtro del paese di Booking. Andata e ritorno e accesso restano senza zona.
@@ -36,6 +40,100 @@
 // `attivo: false` non entra mai nello schedule, ma `--slug <slug>` lo cerca lo
 // stesso, una volta (workflow «Prezzi voli e alloggi», input `slug`).
 export const viaggi = [
+  {
+    slug: 'costa-ovest-2027',
+    titolo: 'Da Seattle a Los Angeles, lungo il mare',
+    date: '7–22 agosto 2027',
+    luoghi: 'Olympic, costa dell’Oregon, Redwoods, San Francisco, Yosemite, Big Sur',
+    // Niente playlist (nessun playlistDi, nessun blocco in src/playlist.js).
+    // Niente ricerca periodica: una sola rilevazione lanciata a mano con --slug (workflow, input slug).
+    voli: {
+      attivo: false,
+      adulti: 4,
+      andata: { da: ['MXP', 'VCE'], a: ['SEA'], date: ['2027-08-07'] },
+      ritorno: { da: ['LAX'], a: ['MXP', 'VCE'], date: ['2027-08-21'] }, // volo serale, arrivo domenica 22
+      // Stime, in euro, per un'auto con chi vola: auto = carburante + pedaggi per una tratta; parcheggio = 16 giorni
+      // (7–22 agosto). Tratte come ovest-2027-short; parcheggi scalati da 11 a 16 giorni, da verificare.
+      accesso: {
+        MXP: { auto: 55, parcheggio: 160 },
+        VCE: { auto: 33, parcheggio: 135 },
+      },
+      // Chi ospita vola da Denver a Seattle, ritira l'auto, e alla fine torna da Los Angeles (solo andata).
+      ospiti: [
+        { id: 'arrivo', voce: 'Volo di chi ospita, Denver → Seattle', adulti: 2, da: ['DEN'], a: ['SEA'], date: ['2027-08-07'] },
+        { id: 'rientro', voce: 'Volo di chi ospita, Los Angeles → Denver', adulti: 2, da: ['LAX'], a: ['DEN'], date: ['2027-08-21'] },
+      ],
+      // «Se siamo in quattro»: stesso viaggio, dall'Italia volano solo in due (public/<slug>/voli-in4.csv).
+      alternative: [
+        {
+          id: 'in4',
+          nome: 'Se siamo in quattro',
+          descrizione:
+            'Stesso giro con due coppie: dall’Italia volano in due, l’auto è più piccola e le case hanno due camere invece di tre (stima: tre quarti del prezzo della casa per sei).',
+          adulti: 2,
+          andata: { da: ['MXP', 'VCE'], a: ['SEA'], date: ['2027-08-07'] },
+          ritorno: { da: ['LAX'], a: ['MXP', 'VCE'], date: ['2027-08-21'] },
+          ospiti: [
+            { id: 'arrivo', voce: 'Volo di chi ospita, Denver → Seattle', adulti: 2, da: ['DEN'], a: ['SEA'], date: ['2027-08-07'] },
+            { id: 'rientro', voce: 'Volo di chi ospita, Los Angeles → Denver', adulti: 2, da: ['LAX'], a: ['DEN'], date: ['2027-08-21'] },
+          ],
+        },
+      ],
+    },
+    alloggi: {
+      attivo: false,
+      adulti: 6,
+      camere: 3, // una per coppia
+      bagni: 2,
+      fonti: ['airbnb', 'booking'],
+      paese: 'us',
+      raggioKm: 25,
+      tappe: [
+        { id: 'seattle', nome: 'Seattle', q: 'Seattle, Washington, USA', centro: [47.6062, -122.3321], raggioKm: 15, dal: '2027-08-07', al: '2027-08-09' },
+        {
+          id: 'forks', nome: 'Forks', q: 'Forks, Washington, USA', centro: [47.9504, -124.3855], raggioKm: 30, dal: '2027-08-09', al: '2027-08-10',
+          nota: 'Per Rialto Beach la sera e la Hoh Rain Forest la mattina presto. Entro 30 km anche La Push.',
+        },
+        { id: 'cannon-beach', nome: 'Cannon Beach', q: 'Cannon Beach, Oregon, USA', centro: [45.8918, -123.9615], raggioKm: 20, dal: '2027-08-10', al: '2027-08-11' },
+        {
+          id: 'yachats', nome: 'Yachats', q: 'Yachats, Oregon, USA', centro: [44.3112, -124.1043], raggioKm: 30, dal: '2027-08-11', al: '2027-08-12',
+          nota: 'A metà della costa dell’Oregon: entro 30 km anche Waldport e Cape Perpetua.',
+        },
+        { id: 'gold-beach', nome: 'Gold Beach', q: 'Gold Beach, Oregon, USA', centro: [42.4073, -124.4218], raggioKm: 30, dal: '2027-08-12', al: '2027-08-13' },
+        {
+          id: 'trinidad', nome: 'Trinidad', q: 'Trinidad, California, USA', centro: [41.0593, -124.1431], raggioKm: 35, dal: '2027-08-13', al: '2027-08-14',
+          nota: 'Tra le sequoie di Prairie Creek e Eureka: entro 35 km anche Orick, McKinleyville e Arcata.',
+        },
+        { id: 'mendocino', nome: 'Mendocino', q: 'Mendocino, California, USA', centro: [39.3077, -123.7995], raggioKm: 20, dal: '2027-08-14', al: '2027-08-15' },
+        { id: 'san-francisco', nome: 'San Francisco', q: 'San Francisco, California, USA', centro: [37.7749, -122.4194], raggioKm: 10, dal: '2027-08-15', al: '2027-08-17' },
+        {
+          id: 'yosemite', nome: 'Yosemite', q: 'Yosemite West, California, USA', centro: [37.651, -119.7], raggioKm: 30, vicino: 'Yosemite West',
+          dal: '2027-08-17', al: '2027-08-19',
+          nota: 'Prima scelta: dormire dentro il parco (Yosemite Valley Lodge, Curry Village, Wawona), solo su travelyosemite.com, con molti mesi di anticipo. Qui cerco case entro 30 km: Yosemite West (dentro il parco, a 30 minuti dalla valle), Wawona, El Portal, Foresta.',
+        },
+        { id: 'monterey', nome: 'Monterey', q: 'Monterey, California, USA', centro: [36.6002, -121.8947], raggioKm: 15, dal: '2027-08-19', al: '2027-08-20' },
+        { id: 'santa-barbara', nome: 'Santa Barbara', q: 'Santa Barbara, California, USA', centro: [34.4208, -119.6982], raggioKm: 20, dal: '2027-08-20', al: '2027-08-21' },
+      ],
+    },
+    costi: {
+      coppie: 3,
+      // Nessun motore SerpApi per il noleggio: importo da chiedere. Solo andata tra due stati: c'è il supplemento di riconsegna.
+      noleggio: { voce: 'Noleggio SUV grande o minivan 7-8 posti, Seattle (SEA) → Los Angeles (LAX), 7–21 agosto, solo andata', importo: null },
+      // km da OSRM, somma dei 15 giorni (compresa la gita facoltativa al Rainier, 334 km); SUV o minivan carico ~12 l/100 km;
+      // benzina media WA/OR/CA ~4,50 $/gal ≈ 1,05 €/l (stima). Paga chi ospita.
+      carburante: { km: 3730, litriPer100: 12, euroLitro: 1.05 },
+      extra: [],
+      alternative: {
+        in4: {
+          coppie: 2,
+          noleggio: { voce: 'Noleggio SUV 5 posti, Seattle (SEA) → Los Angeles (LAX), 7–21 agosto, solo andata', importo: null },
+          carburante: { litriPer100: 10 },
+          // Case per 4 con 2 camere: stimate a tre quarti del prezzo rilevato per 6 con 3 camere (nessuna ricerca in più).
+          fattoreCase: 0.75,
+        },
+      },
+    },
+  },
   {
     slug: 'sudamerica-2028',
     titolo: 'Il grand tour del Sud America',
@@ -382,7 +480,7 @@ export const viaggi = [
     titolo: 'Glacier, il prolungamento in due',
     date: '29 luglio – 2 agosto 2027',
     luoghi: 'Flathead Lake, Glacier',
-    nota: 'Prolungamento del viaggio in sei: solo per chi ospita',
+    nota: 'Saltato: niente prolungamento, si torna a Denver con gli altri',
     // Stessa playlist Spotify dell'Ovest; in pagina la scaletta dei tragitti di questi giorni.
     playlistDi: 'ovest-2027',
     // Viaggio in dollari: i bot cercano in USD e la pagina mostra in USD.

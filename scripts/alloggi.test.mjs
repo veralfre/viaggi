@@ -522,3 +522,28 @@ describe('Sud America: non attivo, 21 tappe in sei paesi, rilevazione una tantum
     assert.doesNotMatch(r.stdout, /sudamerica/)
   })
 })
+
+describe('Costa ovest: viaggio non attivo, 11 tappe, rilevazione una tantum con --slug', () => {
+  const co = viaggi.find((v) => v.slug === 'costa-ovest-2027')
+  const cli = (...args) =>
+    spawnSync(process.execPath, [path.join(QUI, 'alloggi.mjs'), '--dry-run', ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, SERPAPI_KEY_ALLOGGI: '', ALLOGGI_NOW: '2026-11-26T05:17:00Z' },
+    })
+
+  test('spento, 11 tappe consecutive dal 7 al 21 agosto, due fonti: 22 ricerche', () => {
+    assert.equal(co.alloggi.attivo, false)
+    assert.ok(!attivi(viaggi, '2026-11-26').includes(co))
+    const t = co.alloggi.tappe
+    assert.equal(t.length, 11)
+    for (let i = 1; i < t.length; i++) assert.equal(t[i].dal, t[i - 1].al)
+    assert.deepEqual([t[0].dal, t.at(-1).al], ['2027-08-07', '2027-08-21'])
+    assert.equal(stimaBudget([co], '2026-11-26').perEsecuzione, 22)
+  })
+
+  test('CLI --dry-run --slug costa-ovest-2027: 22 ricerche', () => {
+    const r = cli('--slug', 'costa-ovest-2027')
+    assert.equal(r.status, 0, r.stderr)
+    assert.match(r.stdout, /Esecuzione una tantum alloggi: 22 ricerche/)
+  })
+})

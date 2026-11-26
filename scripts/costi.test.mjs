@@ -40,8 +40,8 @@ test('valutaDi: codice ISO del viaggio, altrimenti EUR', () => {
 
 test('datiPagina di Big Island: dollari, una coppia, rilevazione unica, 10 notti in tre tappe', () => {
   const big = viaggi.find((v) => v.slug === 'big-island-2027')
-  // subito dopo il Sud America, primo della lista
-  assert.equal(viaggi[1], big)
+  // subito dopo il Sud America (secondo della lista, dopo la costa ovest)
+  assert.equal(viaggi[2], big)
   const d = datiPagina(big, { playlist: playlist[big.slug], generi: GENERI })
   assert.equal(d.valuta, 'USD')
   assert.deepEqual(d.aggiornamento, { voli: false, alloggi: false })
@@ -175,7 +175,7 @@ test('datiPagina di Glacier: dollari, una coppia, rilevazione unica, 4 notti dal
 
 test('datiPagina del Sud America: dollari, una coppia, rilevazione unica, 21 tappe con il buco del tour di Uyuni, 8 voli interni', () => {
   const sa = viaggi.find((v) => v.slug === 'sudamerica-2028')
-  assert.equal(viaggi[0], sa)
+  assert.equal(viaggi[1], sa)
   const d = datiPagina(sa, { playlist: playlist[sa.slug], generi: GENERI })
   assert.equal(d.valuta, 'USD')
   assert.deepEqual(d.aggiornamento, { voli: false, alloggi: false })
@@ -328,4 +328,42 @@ test('zona del Sud America: ogni voce ha il suo paese, le somme per paese tornan
     assert.ok([...o.ospiti, ...(o.alloggi?.tappe ?? []), ...o.extra].every((x) => !('zona' in x)), v.slug)
   }
   assert.deepEqual(datiPagina({ costi: { extra: [{ voce: 'A', importo: 1, zona: '' }] } }).extra, [{ voce: 'A', importo: 1 }])
+})
+
+test('datiPagina della costa ovest: tre coppie, 11 tappe per 14 notti, rilevazione unica, scenario «se siamo in quattro»', () => {
+  const co = viaggi.find((v) => v.slug === 'costa-ovest-2027')
+  assert.equal(viaggi[0], co)
+  assert.equal(co.playlistDi, undefined)
+  assert.equal(playlist[co.slug], undefined)
+  const d = datiPagina(co, { playlist: playlist[co.slug], generi: GENERI })
+  assert.equal(d.valuta, 'EUR')
+  assert.deepEqual(d.aggiornamento, { voli: false, alloggi: false })
+  assert.equal(d.coppie, 3)
+  assert.equal(d.adultiInVolo, 4)
+  assert.equal(d.playlist, null)
+  assert.deepEqual([d.partenze, d.arrivo, d.ritornoDa], [['MXP', 'VCE'], ['SEA'], ['LAX']])
+  assert.deepEqual(d.accesso.persona, { MXP: 67.5, VCE: 50.25 })
+  const t = d.alloggi.tappe
+  assert.equal(t.length, 11)
+  assert.equal(t[0].dal, '2027-08-07')
+  assert.equal(t.at(-1).al, '2027-08-21')
+  for (let i = 1; i < t.length; i++) assert.equal(t[i].dal, t[i - 1].al)
+  assert.equal(t.reduce((n, x) => n + x.notti, 0), 14)
+  assert.deepEqual([d.alloggi.adulti, d.alloggi.camere, d.alloggi.bagni], [6, 3, 2])
+  assert.equal(d.carburante.importo, 469.98)
+  assert.deepEqual(d.ospiti.map((x) => [x.id, x.da[0], x.a[0]]), [['arrivo', 'DEN', 'SEA'], ['rientro', 'LAX', 'DEN']])
+  assert.equal(d.alternative.length, 1)
+  const a = d.alternative[0]
+  assert.deepEqual([a.id, a.csv, a.adulti, a.coppie, a.fattoreCase], ['in4', 'voli-in4.csv', 2, 2, 0.75])
+  assert.deepEqual(a.accesso.persona, { MXP: 135, VCE: 100.5 })
+  assert.deepEqual(a.accesso.aeroporti, co.voli.accesso)
+  assert.equal(a.carburante.importo, 391.65)
+  assert.match(a.noleggio.voce, /5 posti/)
+  assert.equal(a.noleggio.importo, null)
+  // Gli scenari degli altri viaggi restano identici: niente chiavi dello scenario con meno persone.
+  for (const slug of ['ovest-2027-short', 'ovest-2027-glacier']) {
+    for (const x of datiPagina(viaggi.find((v) => v.slug === slug)).alternative) {
+      for (const k of ['adulti', 'coppie', 'fattoreCase', 'accesso']) assert.ok(!(k in x), slug + ' ' + x.id + ' ' + k)
+    }
+  }
 })
